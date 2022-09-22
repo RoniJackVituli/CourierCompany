@@ -13,26 +13,34 @@ package components;
  * 
  * */
 
-public class Address {
-	private final int zip;
-	private final int street;
-	
-	public Address(int zip, int street ) {
-		this.zip=zip;
-		this.street=street;
-	}
 
+
+public class Address {
+	private int zip;
+	private int street;
+	
+	public Address(int zip, int street) {
+		this.zip = zip;
+		this.street = street;
+	}
+	
 	public int getZip() {
 		return zip;
+	}
+	
+	@Override
+	public String toString() {
+		return " " + zip + "-" + street;
+	}
+
+	public void setZip(int zip) {
+		this.zip = zip;
 	}
 
 	public int getStreet() {
 		return street;
 	}
 	
-	@Override
-	public String toString() {
-		return zip + "-" + street;
-	}	
-
+	
+	
 }
