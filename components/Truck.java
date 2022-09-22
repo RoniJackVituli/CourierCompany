@@ -1,6 +1,9 @@
 package components;
+
+import java.awt.Point;
 import java.util.ArrayList;
 import java.util.Random;
+
 /**
  * The Truck class 
  * 
@@ -24,149 +27,112 @@ import java.util.Random;
  * 
  * */
 
-public abstract class Truck implements Node{
+public  abstract class Truck implements Node, Runnable {
+	private static int countID=2000;
+	final private int truckID;
+	private String licensePlate;
+	private String truckModel;
+	private boolean available=true;
+	private int timeLeft=0;
+	protected int timeNonA = 0;
+	protected int timeNonB = 0;
+	protected boolean goBackToBranchFromSen = false;
+	private ArrayList<Package> packages=new ArrayList<Package>();
 
-	private static int numTruck = 2000;
-	private int numOfPackage = 0;
-	private int add = 0;
-	
-	private int truckID;
-	private	String licensePlate;
-	private	String truckModel; 
-	private	boolean available; //truck isAvliable
-	private	int timeLeft; // time arrive
-	private ArrayList<Package> packages; // חבילות שיש במשאית.
+	private Point target = new Point();
+	private Point location = new Point();
 
-	public Truck() { 
-		/**
-		 *  Default Constructor of the class
-		 *  The Constructor builds a truck in this way:
-		 *  1. Randomly creates a car model between M(0-4).
-		 *  2. Says the truck is available.
-		 *  3. create randomly number for license plate (xxx-xx-xxx)
-		 * */
-		//Create Random number of model
-		Random rand = new Random();
-		int M = rand.nextInt(5);
-		this.truckModel = "M" + String.valueOf(M);
-		this.available = true;
-		this.packages = new ArrayList<Package>();
 		
-		//Create Random LicensePlate.
-		int FirstNum, SecNum ,ThirdNum;
-		FirstNum = rand.nextInt(1000-100) + 100;
-		SecNum = rand.nextInt(100-10) + 10;
-		ThirdNum = rand.nextInt(1000-100) + 100;
-		this.licensePlate = String.valueOf(FirstNum) + "-" + String.valueOf(SecNum) + "-" + String.valueOf(ThirdNum);
-		this.truckID = numTruck++;
-	
-	}
-	
+
 	/**
 	 * Constructor of the class
 	 * get two parameters 
 	 * @param licensePlate
 	 * @param truckModel
 	 * */
-	public Truck(String licensePlate, String truckModel) {
-		this.licensePlate = licensePlate;
-		this.truckModel = truckModel;
-		this.truckID = numTruck++;
-		this.packages = new ArrayList<Package>();
-	}
-	
-	
-	public void setTruckModel(String truckModel) {
-		this.truckModel = truckModel;
-	}
-
-	public void setLicensePlate(String licensePlate) {
-		this.licensePlate = licensePlate;
-	}
-	
-	//Gets & Sets
-	public int getTruckID() {
-		return truckID;
-	}
-
-	public String getLicensePlate() {
-		return licensePlate;
-	}
-
-	public String getTruckModel() {
-		return truckModel;
+	public Truck() {
+		truckID=countID++;
+		Random r= new Random();
+		licensePlate=(r.nextInt(900)+100)+"-"+(r.nextInt(90)+10)+"-"+(r.nextInt(900)+100);
+		truckModel="M"+r.nextInt(5);
+		System.out.print("Creating ");
 	}
 
 	
+	public Truck(String licensePlate,String truckModel) {
+		truckID=countID++;
+		this.licensePlate=licensePlate;
+		this.truckModel=truckModel;
+		System.out.print("Creating ");
+	}
 	
-	public boolean isAvailable() {
-		return this.available;
+	
+	public ArrayList<Package> getPackages() {
+		return packages;
 	}
 
-	public void setAvailable(boolean available) {
-		this.available = available;
-	}
 
 	public int getTimeLeft() {
 		return timeLeft;
 	}
 
-	public ArrayList<Package> getPackages() {
-		return packages;
-	}
-	
-	public void setPackages(ArrayList<Package> packages) {
-		this.packages = packages;
-	}
 	
 	public void setTimeLeft(int timeLeft) {
-		if(timeLeft < 0)
-			this.timeLeft += timeLeft;
-		else
-			this.timeLeft = timeLeft;
+		this.timeLeft = timeLeft;
 	}
 	
-	protected void addPackageSuccessed() {
-		this.numOfPackage += 1;
-	}
-	
-	protected void subPackageSuccessed() {
-		this.numOfPackage -= 1;
-	}
 
-	public boolean isAdd() {
-		if(this.numOfPackage > this.add) {
-			this.add++;
-			return true;
-		}
-		return false;
-	
+	public Point getLocation() {
+		return location;
 	}
 	
-	public abstract boolean addPackageToTruck(Package p);
+	public Point getTarget() {
+		return target;
+	}
 	
+
 	@Override
-	public boolean equals(Object obj){
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		Truck other = (Truck) obj;
-		if (licensePlate == null) {
-			if (other.licensePlate != null)
-				return false;
-		} else if (!licensePlate.equals(other.licensePlate))
-			return false;
-		return true;
+	public String toString() {
+		return "truckID=" + truckID + ", licensePlate=" + licensePlate + ", truckModel=" + truckModel + ", available= " + available ;
+	}
+
+
+	@Override
+	public void collectPackage(Package p) {
+		setAvailable(false);
+		int time=(p.getSenderAddress().getStreet()%10+1);
+		this.setTimeLeft(time*10);
+		this.timeNonA = time*10;
+		this.timeNonB = 1;
+		this.packages.add(p);
+		p.setStatus(Status.COLLECTION);
+		p.addTracking(new Tracking(MainOffice.getClock(), this, p.getStatus()));
+		System.out.println(getName() + " is collecting package " + p.getPackageID() + ", time to arrive: "+ getTimeLeft()  );
+	}
+
+
+	public boolean isAvailable() {
+		return available;
 	}
 	
 
+	public int getTruckID() {
+		return truckID;
+	}
 
 	
+	public void setAvailable(boolean available) {
+		this.available = available;
+	}
 	
 	
+	public void addPackage(Package p) {
+		this.packages.add(p);
+	}
 	
+	
+	public String getName() {
+		return this.getClass().getSimpleName()+" "+ getTruckID();
+	}
 	
 }

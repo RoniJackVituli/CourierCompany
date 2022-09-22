@@ -1,3 +1,5 @@
+package components;
+
 /**
  * 
  * <h1>The Tracking Class</h1>
@@ -16,78 +18,27 @@
  * 
  * @author Roni_Jack_Vituli -> 315369967 , Matan_Ben_Ishay -> 205577349
  * */
-
-package components;
-
 public class Tracking {
-	private int time;	
-	private Node node; 
-	private Status status; 
+	public final int time;
+	public final Node node;
+	public final Status status;
 	
-	public Tracking(int time, Node node, Status status) { // ctor 
+	public Tracking(int time, Node node, Status status) {
+		super();
 		this.time = time;
-		if(node == null) {
-			Node n = new Customer();
-			this.node = n;
-		}else{
-			this.node = node;
-		}
-		this.status = status;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		Tracking other = (Tracking) obj;
-		if (node == null) {
-			if (other.node != null)
-				return false;
-		} else if (!node.equals(other.node))
-			return false;
-		if (status != other.status)
-			return false;
-		if (time != other.time)
-			return false;
-		return true;
-	}
-
-	public int getTime() {
-		return time;
-	}
-
-
-	public void setTime(int time) {
-		this.time = time;
-	}
-
-
-	public Node getNode() {
-		return node;
-	}
-
-
-	public void setNode(Node node) {
 		this.node = node;
-	}
-
-
-	public Status getStatus() {
-		return status;
-	}
-
-
-	public void setStatus(Status status) {
 		this.status = status;
 	}
 
-
+	public Tracking (Node node, Status status) {
+		this(MainOffice.getClock(),node,status);
+	}
+	
 	@Override
 	public String toString() {
-		return node.getName() +", status = " + getStatus() +" :" + getTime();
+		String name = (node==null)? "Customer" : node.getName();
+		return time + ": " + name + ", status=" + status;
 	}
+
+	
 }

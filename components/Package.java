@@ -1,4 +1,6 @@
 package components;
+
+import java.awt.Point;
 import java.util.ArrayList;
 
 /**
@@ -18,118 +20,172 @@ import java.util.ArrayList;
  * 
  * */
 
-public abstract class Package{
-	private static int numOfPack = 1000;
 
+/**
+ * Since this is an abstract class I pass these methods on to classes that inherit from it.
+ * */
+
+public abstract class Package {
 	
-	private int packageID; // run number.
-	private	Priority priority;
-	private	Status status;
-	private	Address senderAddress;
+	private static int countID=1000;
+	final private int packageID;
+	private Priority priority;
+	private Status status;
+	private Address senderAddress;
 	private Address destinationAddress;
-	private ArrayList<Tracking> tracking; 
-	
-	
-	
-	/**
-	 * this is the constructor of the class.
-	 * gets three parameters and produces a new object.
-	 * @param priority -> Package priority.
-	 * @param senderAddress -> sender's address.
-	 * @param destinationAddress ->Destination address.
-	 * */
-	public Package(Priority priority, Address senderAddress, Address destinationAddress) {
-		
-		this.priority = priority;
-		this.senderAddress = senderAddress; 
-		this.destinationAddress = destinationAddress; 
-		this.packageID = Package.numOfPack++;
-		this.status = Status.CREATION; 
-		this.tracking = new ArrayList<Tracking>();
+	private ArrayList<Tracking> tracking = new ArrayList<Tracking>();
+	private double packageCordX, PackageCordClientY, PackageCordCustomerY ;
+	private Point whereToGoClient, whereToGoCustomer;
+
+
+	public Package(Priority priority, Address senderAddress,Address destinationAdress) {
+		packageID = countID++;
+		this.priority=priority;
+		this.status=Status.CREATION;
+		this.senderAddress=senderAddress;
+		this.destinationAddress=destinationAdress;
+		tracking.add(new Tracking( MainOffice.getClock(), null, status));
 	}
 	
-//	public Package(Package p) {
-//		this.priority = p.getPriority();
-//		this.senderAddress = p.getSenderAddress(); 
-//		this.destinationAddress = p.getDestinationAddress();
-//		this.packageID = Package.numOfPack++;
-//		this.status = p.getStatus(); 
-//		this.tracking = p.getTracking();
-//	}
 	
-	/**
-	 * Since this is an abstract class I pass these methods on to classes that inherit from it.
-	 * 
-	 * Weight method - should return the weight of the package.
-	 * addTracking method - gets the location of the package and the status of the package and the method adds to tracking
-	 * printTracking - Prints the package history list
-	 * 
-	 * */
-	
-	public abstract double weight();
-	public abstract void addTracking (Node node, Status status);
-	public abstract void printTracking();
-	
+	public double getPackageCordClientY() {
+		return PackageCordClientY;
+	}
 
-	/**
-	 * 
-	 * Methodical sessions of set & gets
-	 * 
-	 * */
-	//GET & SET
+	public double getPackageCordCustomerY() {
+		return PackageCordCustomerY;
+	}
+
+	public void setPackageCordClientY(double packageCordClientY) {
+		PackageCordClientY = packageCordClientY;
+	}
+
+	public void setPackageCordCustomerY(double packageCordCustomerY) {
+		PackageCordCustomerY = packageCordCustomerY;
+	}
+
+	
+	public double getPackageCordX() {
+		return packageCordX;
+	}
+
+
+	public void setPackageCordX(double packageCordX) {
+		this.packageCordX = packageCordX;
+	}
+
+
+	
+	public Point getWhereToGoClient() {
+		return whereToGoClient;
+	}
+
+
+	public Point getWhereToGoCustomer() {
+		return whereToGoCustomer;
+	}
+
+
+	public void setWhereToGoClient(Point whereToGoClient) {
+		this.whereToGoClient = whereToGoClient;
+	}
+
+
+	public void setWhereToGoCustomer(Point whereToGoCustomer) {
+		this.whereToGoCustomer = whereToGoCustomer;
+	}
+
+	
+	public Priority getPriority() {
+		return priority;
+	}
+
+	
+	public void setPriority(Priority priority) {
+		this.priority = priority;
+	}
+
+	
+	public Status getStatus() {
+		return status;
+	}
+
+	
+	public void setStatus(Status status) {
+		this.status = status;
+	}
+
 	
 	public int getPackageID() {
 		return packageID;
 	}
 	
-
-	public Priority getPriority() {
-		return priority;
-	}
-
-
-	public void setPriority(Priority priority) {
-		this.priority = priority;
-	}
-
-
-	public Status getStatus() {
-		return status;
-	}
-
-
-	public void setStatus(Status status) {
-		this.status = status;
-	}
-
-
+	
+	
 	public Address getSenderAddress() {
 		return senderAddress;
 	}
 
-
+	
 	public void setSenderAddress(Address senderAddress) {
 		this.senderAddress = senderAddress;
 	}
 
-
+	
 	public Address getDestinationAddress() {
 		return destinationAddress;
 	}
 
-
-	public void setDestinationAddress(Address destinationAddress) {
-		this.destinationAddress = destinationAddress;
+	public String getName() {
+		return "package " + getPackageID(); 
+	}
+	
+	
+	public void setDestinationAddress(Address destinationAdress) {
+		this.destinationAddress = destinationAdress;
 	}
 
-
-	public void setTracking(ArrayList<Tracking> tracking) {
-		this.tracking = tracking;
+	
+	public void addTracking(Node node, Status status) {
+		tracking.add(new Tracking(MainOffice.getClock(), node, status));
 	}
-
+	
+	
+	public void addTracking(Tracking t) {
+		tracking.add(t);
+	}
+	
+	
 	public ArrayList<Tracking> getTracking() {
 		return tracking;
 	}
 
+	
+	public void printTracking() {
+		for (Tracking t: tracking)
+			System.out.println(t);
+	}
+	
+	
+	public Branch getSenderBranch() {
+		return MainOffice.getHub().getBranches().get(getSenderAddress().getZip());
+	}
+	
+	
+	public Branch getDestBranch() {
+		return MainOffice.getHub().getBranches().get(getDestinationAddress().getZip());
+	}
+	
+	
+	@Override
+	public String toString() {
+		return "packageID=" + packageID + ", priority=" + priority + ", status=" + status + ", senderAddress=" + senderAddress + ", destinationAddress=" + destinationAddress;
+	}
+
+	public void addRecords(Status status, Node node) {
+		setStatus(status);
+		addTracking(node, status);
+	}
+	
 	
 }
