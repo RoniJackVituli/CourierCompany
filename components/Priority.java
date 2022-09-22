@@ -1,4 +1,5 @@
 package components;
+
 /**
  * enum which includes a list of priorities:
  * 1. LOW
@@ -11,7 +12,5 @@ package components;
 
 
 public enum Priority {
-	LOW,
-	STANDARD,
-	HIGH
+	LOW, STANDARD, HIGHT
 }

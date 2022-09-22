@@ -1,6 +1,7 @@
 package components;
 
-class Van extends Truck implements Node{
+
+public class Van extends Truck{
 	/**
 	 * <h1>The Van class</h1> 
 	 * this class collects a package from the sender's address to the local branch and inherits from a Truck class.
@@ -11,16 +12,14 @@ class Van extends Truck implements Node{
 	
 	
 	
-	
 	/** 
 	 * Default Constructor of the class
 	 * activates Truck Constructor using super
 	 * Then runs the toString function and prints the generated data.
 	 * */
-	
-	public Van() { 
+	public Van() {
 		super();
-		System.out.println("Creating "+ this.toString());	
+		System.out.println(this);
 	}
 	
 	/**
@@ -32,108 +31,101 @@ class Van extends Truck implements Node{
 	 * activates Truck Constructor using super 
 	 * Then runs the toString function and prints the generated data.
 	 * */
-	public Van(String licensePlate, String truckModel) {
-		super(licensePlate, truckModel);
-		System.out.println("Creating "+ this.toString());	
+	public Van(String licensePlate,String truckModel) {
+		super(licensePlate,truckModel);
+		System.out.println(this);
 	}
 	
-	
+
 	@Override
 	public String toString() {
-		return "Van [truckID = " + this.getTruckID()+ ", licensePlate = "+this.getLicensePlate()+", truckModel = " + this.getTruckModel()+ ", available = "+this.isAvailable()+"]";
+		return "Van ["+ super.toString() + "]";
 	}
 	
-	
-	/**
-	 * 
-	 * A work function performs a work unit under the following conditions:
-	 * 1. If the vehicle is not available it does nothing. 
-	 * 	else:
-	 * 		if the vehicle is in travel time, it reduces the time in the field (timeLeft) by 1.
-	 * 		if after the reduction the time (timeLeft) has reached zero ,so the trip was over.
-	 * 		and now we need to check what the purpose of the trip was:
-	 * 			1.First goal - collection from the customer 
-	 * 				This means that the package at this stage will be transferred from the vehicle to the branch, the status of the package will be updated, 
-	 * 				and a suitable registration will also be added to the tracking list of the package.
-	 * 				Then prints a message that the vehicle picked up the package and came back to the branch.
-	 * 				for example: "Van -X- has collected packages -Y- and arrived back to branch -Z-"
-	 * 				X -> truckID
-	 * 				Y -> packageID
-	 * 				Z -> zip
-	 * 				In addition the Van will become available.
-	 * 			2.Second goal - delivery of the package to the customer.
-	 * 				That is, if the status of the package at the branch is "DISTRIBUTION" 
-	 * 				then the van will collect the package and drive to the customer to deliver it.
-	 * 				If the package was a small package, you should check whether the option of sending a delivery confirmation is activated.
-	 * 				and also updating the records in tracking.
-	 * */
-	
-	public void work() {
-		if(!this.isAvailable()) {
-			if(this.getTimeLeft() == 0) {
-				if(Purpose(this.getPackages().get(0))){ // מטרה לאסוף.
-					System.out.println("Van " + this.getTruckID() + " has collected packages " + this.getPackages().get(0).getPackageID()+ " and arrived back to branch " + this.getPackages().get(0).getSenderAddress().getZip());
-					this.getPackages().get(0).setStatus(Status.BRANCH_STORAGE);
-					this.setAvailable(true);
-				}else { // המשאית הגיעה ליעד
-					System.out.println("Van "+ this.getTruckID() +" has delivered package "+this.getPackages().get(0).getPackageID() +" to the destination");
-					this.getPackages().get(0).setStatus(Status.DELIVERED);
-					if(this.getPackages().get(0) instanceof SmallPackage && ((SmallPackage)this.getPackages().get(0)).isAcknowledge())
-						System.out.println("The package " + this.getPackages().get(0).getPackageID()+ " send");
-					this.getPackages().get(0).addTracking(null, this.getPackages().get(0).getStatus());
-					this.deliverPackage(this.getPackages().get(0));
-					this.setAvailable(true);
-					
-				}
-			}
-			this.setTimeLeft(-1);
-		}
-		
-	}
-	
-	
-	
-	public String getName() {
-		return "Van " + this.getTruckID();
-	}
-	/**
-	 * Purpose function check if the status of the package is collection.
-	 * @return true
-	 * else 
-	 * @return false
-	 * */
-	private boolean Purpose(Package p) {
-		if(p.getStatus() == Status.COLLECTION)
-			return true;
-		return false;
-	}
-	
-	
-	
-	//This Method from Interface Node.
-	@Override
-	public void collectPackage(Package p) {
-		if(addPackageToTruck(p)) {
-			this.addPackageSuccessed();
-		}
-	
-	}
 	
 	@Override
 	public void deliverPackage(Package p) {
-		this.getPackages().remove(p);
-		}
-	/**
-	 * function addPackageToTruck check if the Package we need to collected is small or standard package.
-	 * and if it's one of them it collected to the truck.
-	 * */
+		addPackage(p);
+		setAvailable(false);
+		int time=p.getDestinationAddress().getStreet()%10+1;
+		this.setTimeLeft(time*10);
+		this.timeNonA = getTimeLeft();
+		this.timeNonB = 1;
+		p.addRecords(Status.DISTRIBUTION, this);
+		System.out.println(getName() + " is delivering " + p.getName() + ", time left: "+ getTimeLeft()  );
+	}
+	
 	
 	@Override
-	public boolean addPackageToTruck(Package p) {
-		if(p instanceof StandardPackage || p instanceof SmallPackage) {
-			this.getPackages().add(p);
-			return true;
+	public synchronized void work() {
+		if (!isAvailable()) {
+			setTimeLeft(getTimeLeft()-1);
+			Package p = getPackages().get(0);
+			if (this.getTimeLeft()==0){
+				if (p.getStatus()==Status.COLLECTION && !(this.goBackToBranchFromSen)) {
+					System.out.println(getName() + " has collected " +p.getName()+" and arrived back to " + p.getSenderBranch().getName());
+					this.goBackToBranchFromSen = true;
+					this.getLocation().x = (int) p.getPackageCordX();
+					this.getLocation().y = (int) p.getPackageCordClientY();
+					goBackToBranchFromSen(p);
+				}else if(this.goBackToBranchFromSen) {
+					p.addRecords(Status.BRANCH_STORAGE,p.getSenderBranch());
+					this.getPackages().removeAll(getPackages());
+					this.setAvailable(true);
+					this.goBackToBranchFromSen = false;
+				}else {
+					this.setAvailable(true);
+					getPackages().remove(0);
+					p.addRecords(Status.DELIVERED, null);
+					p.getDestBranch().removePackage(p);
+					this.getLocation().x = (int) p.getDestBranch().getLocation().getX();
+					this.getLocation().y = (int) p.getDestBranch().getLocation().getY();
+					System.out.println(getName() + " has delivered "+p.getName() + " to the destination");
+					if (p instanceof SmallPackage && ((SmallPackage)p).isAcknowledge()) 
+							System.out.println("Acknowledge sent for "+p.getName());
+				}
+			}else {
+				if(p.getStatus()==Status.COLLECTION && !this.goBackToBranchFromSen) {
+					int x = (int)(p.getSenderBranch().getLocation().getX() + (p.getPackageCordX() - p.getSenderBranch().getLocation().getX())*this.timeNonB/this.timeNonA) ;
+					int y =  (int)(p.getSenderBranch().getLocation().getY() + (32  - p.getSenderBranch().getLocation().getY())*this.timeNonB/this.timeNonA);
+					this.timeNonB++;
+					this.getLocation().x = x-5; 
+					this.getLocation().y = y - 5;
+				}else if(this.goBackToBranchFromSen) {
+					int x = (int)(p.getPackageCordX() + (p.getSenderBranch().getLocation().getX() - p.getPackageCordX())*this.timeNonB/this.timeNonA) ;
+					int y = (int)(32 + (p.getSenderBranch().getLocation().getY() - 32)*this.timeNonB/this.timeNonA);
+					this.timeNonB++;
+					this.getLocation().x = x - 5; 
+					this.getLocation().y = y;
+				}else if(p.getStatus() == Status.DISTRIBUTION) {
+					int x = (int)(p.getDestBranch().getLocation().getX() + (p.getPackageCordX() - p.getDestBranch().getLocation().getX())*this.timeNonB/this.timeNonA) ;
+					int y =  (int)(p.getDestBranch().getLocation().getY() + (602  - p.getDestBranch().getLocation().getY())*this.timeNonB/this.timeNonA);
+					this.timeNonB++;
+					this.getLocation().x = x-5; 
+					this.getLocation().y = y - 5;
+				}
+			}
 		}
-		return false;
+	}
+	/**
+	 * 
+	 * Check if the Van is return to the branch after it collecting the package from the client
+	 * 
+	 * */
+	
+	
+	public void goBackToBranchFromSen(Package p) {
+		setAvailable(false);
+		int time=(p.getSenderAddress().getStreet()%10+1);
+		this.setTimeLeft(time*10);
+		this.timeNonA = time*10;
+		this.timeNonB = 1;
+	}
+
+
+	@Override
+	public void run() {
+		work();
+		
 	}
 }
