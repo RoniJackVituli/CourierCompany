@@ -1,11 +1,32 @@
 package components;
 
-import java.awt.Color;
-import java.awt.Graphics;
+import java.awt.Point;
 import java.util.ArrayList;
 
+/**
+ * <h1> The Class Package </h1>
+ * 
+ * <p>
+ * A package class from which 3 packages will be inherited.
+ * It has 6 fields that are:
+ * 1. packageID -> Package ID number - the number starts from 1000.
+ * 2. priority -> represents the priority of the package.
+ * 3. status -> a status that accepts the current status of the package.
+ * 4. senderAddress -> The sender address of the package.
+ * 5. destinationAddress -> represents the destination address of the package.
+ * 6. tracking -> collection of records with transfer history of the package.
 
-public abstract class Package implements Cloneable{
+ * @author Roni_Jack_Vituli -> 315369967 , Matan_Ben_Ishay -> 205577349
+ * 
+ * */
+
+
+/**
+ * Since this is an abstract class I pass these methods on to classes that inherit from it.
+ * */
+
+public abstract class Package {
+	
 	private static int countID=1000;
 	final private int packageID;
 	private Priority priority;
@@ -13,34 +34,67 @@ public abstract class Package implements Cloneable{
 	private Address senderAddress;
 	private Address destinationAddress;
 	private ArrayList<Tracking> tracking = new ArrayList<Tracking>();
-	private Branch branch = null;
-	private Point sendPoint;
-	private Point destPoint;
-	private Point bInPoint;
-	private Point bOutPoint;
+	private double packageCordX, PackageCordClientY, PackageCordCustomerY ;
+	private Point whereToGoClient, whereToGoCustomer;
 
-	
-	
+
 	public Package(Priority priority, Address senderAddress,Address destinationAdress) {
 		packageID = countID++;
 		this.priority=priority;
 		this.status=Status.CREATION;
-		//set update 
 		this.senderAddress=senderAddress;
 		this.destinationAddress=destinationAdress;
 		tracking.add(new Tracking( MainOffice.getClock(), null, status));
-	}	
+	}
 	
 	
-	public abstract Object clone();
+	public double getPackageCordClientY() {
+		return PackageCordClientY;
+	}
 
-	public void setBranch(Branch branch) {
-		this.branch = branch;
+	public double getPackageCordCustomerY() {
+		return PackageCordCustomerY;
 	}
+
+	public void setPackageCordClientY(double packageCordClientY) {
+		PackageCordClientY = packageCordClientY;
+	}
+
+	public void setPackageCordCustomerY(double packageCordCustomerY) {
+		PackageCordCustomerY = packageCordCustomerY;
+	}
+
 	
-	public Branch getBranch() {
-		return this.branch;
+	public double getPackageCordX() {
+		return packageCordX;
 	}
+
+
+	public void setPackageCordX(double packageCordX) {
+		this.packageCordX = packageCordX;
+	}
+
+
+	
+	public Point getWhereToGoClient() {
+		return whereToGoClient;
+	}
+
+
+	public Point getWhereToGoCustomer() {
+		return whereToGoCustomer;
+	}
+
+
+	public void setWhereToGoClient(Point whereToGoClient) {
+		this.whereToGoClient = whereToGoClient;
+	}
+
+
+	public void setWhereToGoCustomer(Point whereToGoCustomer) {
+		this.whereToGoCustomer = whereToGoCustomer;
+	}
+
 	
 	public Priority getPriority() {
 		return priority;
@@ -82,6 +136,10 @@ public abstract class Package implements Cloneable{
 		return destinationAddress;
 	}
 
+	public String getName() {
+		return "package " + getPackageID(); 
+	}
+	
 	
 	public void setDestinationAddress(Address destinationAdress) {
 		this.destinationAddress = destinationAdress;
@@ -109,64 +167,25 @@ public abstract class Package implements Cloneable{
 	}
 	
 	
+	public Branch getSenderBranch() {
+		return MainOffice.getHub().getBranches().get(getSenderAddress().getZip());
+	}
+	
+	
+	public Branch getDestBranch() {
+		return MainOffice.getHub().getBranches().get(getDestinationAddress().getZip());
+	}
+	
+	
 	@Override
 	public String toString() {
-		return "packageID = " + packageID + ", priority = " + priority + ", status = " + status
-				+ ", senderAddress = " + senderAddress + ", destinationAddress = " + destinationAddress;
-	}
-	
-	public Point getSendPoint() {
-		return sendPoint;
-	}
-	
-	public Point getDestPoint() {
-		return destPoint;
-	}
-	
-	public Point getBInPoint() {
-		return bInPoint;
-	}
-	
-	public Point getBOutPoint() {
-		return bOutPoint;
+		return "packageID=" + packageID + ", priority=" + priority + ", status=" + status + ", senderAddress=" + senderAddress + ", destinationAddress=" + destinationAddress;
 	}
 
-
-	public void paintComponent(Graphics g, int x, int offset) {
-		if (status==Status.CREATION || (branch==null && status == Status.COLLECTION))
-			g.setColor(new Color(204,0,0));
-		else
-			g.setColor(new Color(255,180,180));
-   		g.fillOval(x, 20, 30, 30);
-   		
-   		if (status==Status.DELIVERED)
-   			g.setColor(new Color(204,0,0));
-   		else
-   			g.setColor(new Color(255,180,180));
-   		g.fillOval(x, 583, 30, 30);
-   		
-		
-   		if (branch!=null) {
-	   		g.setColor(Color.BLUE);
-	   		g.drawLine(x+15,50,40,100+offset*this.senderAddress.getZip());
-	   		sendPoint = new Point(x+15,50);
-	   		bInPoint = new Point(40, 100+offset*this.senderAddress.getZip());
-	   		g.drawLine(x+15,583,40,130+offset*this.destinationAddress.getZip());
-	   		destPoint = new Point(x+15,583);
-	   		bOutPoint = new Point(40,130+offset*this.destinationAddress.getZip());
-	   		
-   		}
-   		else {
-   			g.setColor(Color.RED);
-   			g.drawLine(x+15,50,x+15,583);
-   			g.drawLine(x+15,50,1140, 216);
-   			sendPoint = new Point(x+15,50);
-   			destPoint = new Point(x+15,583);
-   			
-   		}
+	public void addRecords(Status status, Node node) {
+		setStatus(status);
+		addTracking(node, status);
 	}
-
-	
 	
 	
 }

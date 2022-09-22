@@ -20,14 +20,7 @@ public class StandardPackage extends Package {
 	public void setWeight(double weight) {
 		this.weight = weight;
 	}
-	@Override
-	public Object clone() {
-		Priority priority = this.getPriority();
-		Address senderAddress = (Address)this.getSenderAddress().clone();
-		Address destinationAdress = (Address)this.getDestinationAddress().clone();
-		double weight = this.weight; 
-		return new StandardPackage(priority, senderAddress, destinationAdress, weight);
-	}
+
 	
 	@Override
 	public String toString() {

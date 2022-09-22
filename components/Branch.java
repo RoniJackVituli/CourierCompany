@@ -1,261 +1,191 @@
 package components;
-
-import java.awt.Color;
-import java.awt.Graphics;
-import java.beans.PropertyChangeListener;
-import java.beans.PropertyChangeSupport;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-public class Branch implements Node, Runnable, observer, Cloneable, StopRunnable {
-	private static int counter=0;
-	protected final AtomicBoolean running = new AtomicBoolean(false);
-	private int branchId;
+/**
+ * This class describes a local branch *
+ * Describes a local branch. Keeps a list of packages stored at the branch or intended for collection from the sender's address to this branch
+ * and a list of vans that collect the packages from the sending customers and deliver the packages to the receiving customers.
+ * It has 4 fields:
+ * 1. branchID -> branch number.
+ * 2. branchName -> the branch name.
+ * 3. listTrucks -> list of vans
+ * 4. listPackage -> list of package in the branch.
+ * 
+ *  
+ * @author Roni_Jack_Vituli -> 315369967 , Matan_Ben_Ishay -> 205577349
+ * 
+ * */
+
+
+public class Branch implements Node{
+	private static int branchNum = -1;
+
+	private	int branchId;
 	private String branchName;
-	protected ArrayList <Package> unsafeListPackages = new ArrayList<Package>();
-	protected List<Package> listPackages = unsafeListPackages; //Collections.synchronizedList(unsafeListPackages);
-	protected ArrayList <Truck> listTrucks = new ArrayList<Truck>();
-	private Point hubPoint;
-	private Point branchPoint;
-	protected boolean threadSuspend = false;
+	private ArrayList<Truck> listTrucks;
+	private ArrayList<Package> listPackage;
 	
-	private PropertyChangeSupport support; 
-	
+/**
+ * A default constructor, 
+ * a calculate serial number and creates the name of the branch, 
+ * The rest of the variables are initialized to an empty list
+ * 
+ * */
 	
 	public Branch() {
-		this("Branch "+counter);
-
-		support = new PropertyChangeSupport(this); 
-		this.addPropertyChangeListener(MainOffice.getInstance());
+		this.branchId = Branch.branchNum++;
+		this.branchName = "Branch " + String.valueOf(this.branchId);
+		this.listTrucks = null;
+		this.listPackage = new ArrayList<Package>();
+		System.out.println("Creating " +this.toString());	
 	}
 	
+	/**
+	 * A constructor, 
+	 * get one parameter:
+	 * @param branchName
+	 * a calculate serial number,
+	 * The rest of the variables are initialized to an empty list
+	 * 
+	 * */
 	public Branch(String branchName) {
-		this.branchId=counter++;
-		this.branchName=branchName;
-		System.out.println("\nCreating "+ this);
-	
-		support = new PropertyChangeSupport(this); 
-		this.addPropertyChangeListener(MainOffice.getInstance());
-	}
-	
-	public Branch(Branch br) {
-		this.branchId = br.branchId;
-		this.branchName = br.branchName;
-		this.unsafeListPackages = br.unsafeListPackages;
-		this.listPackages = br.listPackages;
-		this.listTrucks = br.listTrucks;
-	}
-	
-	public Branch(String branchName, Package[] plist, Truck[] tlist) {
-		this.branchName=branchName;
-		addPackages(plist);
-		addTrucks(tlist);
+		this.branchName = branchName;
+		this.branchId = Branch.branchNum++;
+		this.listTrucks = null;
+		this.listPackage = new ArrayList<Package>();
+		System.out.println("Creating " +this.toString());	
 
-		support = new PropertyChangeSupport(this); 
-		this.addPropertyChangeListener(MainOffice.getInstance());
 	}
-	
-	
-	public void addPropertyChangeListener(PropertyChangeListener pcl){ 	
-		support.addPropertyChangeListener(pcl); 
-	} 
-
-	public void removePropertyChangeListener(PropertyChangeListener pcl){ 	
-		support.removePropertyChangeListener(pcl); 
-	} 
-
-	
-	@Override
-	public Object clone() {
-		Package[] packages = new Package[this.getPackages().size()];
-		String br = this.getName();
-		Truck[] trucks = new Truck[this.getTrucks().size()];
-		for(int i = 0 ; i < this.getPackages().size() ; i++) {
-			packages[i] = (Package)this.getPackages().get(i).clone();
-		}
-		for(int i = 0 ; i < this.getTrucks().size() ; i++) {
-			if(this.getTrucks().get(i) instanceof StandardTruck)
-				trucks[i] = (StandardTruck)this.getTrucks().get(i).clone();
-			else if(this.getTrucks().get(i) instanceof NonStandardTruck)
-				trucks[i] = (NonStandardTruck)this.getTrucks().get(i).clone();
-			else if(this.getTrucks().get(i) instanceof Van)
-				trucks[i] = (Van)this.getTrucks().get(i).clone();
-		}
-		return new Branch(br, packages, trucks);
-	}
-	
-	
-	
-	public synchronized List <Package> getPackages(){
-		return this.listPackages;
-	}
-	
-	public void printBranch() {
-		System.out.println("\nBranch name: "+branchName);
-		System.out.println("Packages list:");
-		for (Package pack: listPackages)
-			System.out.println(pack);
-		System.out.println("Trucks list:");
-		for (Truck trk: listTrucks)
-			System.out.println(trk);
-	}
-	
-	
-	public synchronized void addPackage(Package pack) {
-		listPackages.add(pack);
-	}
-	
-	
-	public ArrayList <Truck> getTrucks(){
-		return this.listTrucks;
-	}
-	
-	public void addTruck(Truck trk) {
-		listTrucks.add(trk);
-	}
-	
-	
-	public Point getHubPoint() {
-		return hubPoint;
-	}
-	
-	public Point getBranchPoint() {
-		return branchPoint;
-	}
-	
-	public synchronized void addPackages(Package[] plist) {
-		for (Package pack: plist)
-			listPackages.add(pack);
-	}
-	
-	
-	public void addTrucks(Truck[] tlist) {
-		for (Truck trk: tlist)
-			listTrucks.add(trk);
-	}
-
 	
 	public int getBranchId() {
 		return branchId;
 	}
-	
-	
-	public String getName() {
+
+	public void setBranchId(int branchId) {
+		this.branchId = branchId;
+	}
+
+	public String getBranchName() {
 		return branchName;
 	}
 
-	
-	@Override
-	public String toString() {
-		return "Branch " + branchId + ", branch name:" + branchName + ", packages: " + listPackages.size()
-				+ ", trucks: " + listTrucks.size();
+	public void setBranchName(String branchName) {
+		this.branchName = branchName;
 	}
 
+	public ArrayList<Package> getListPackage() {
+		return listPackage;
+	}
+
+	public ArrayList<Truck> getListTrucks() {
+		return listTrucks;
+	}
+	
+	public void setListPackage(ArrayList<Package> listPackage) {
+		this.listPackage = listPackage;
+	}
+
+	public void setListTrucks(ArrayList<Truck> listTrucks) {
+		this.listTrucks = listTrucks;
+	}
+	
+	public String toString() {
+		return "Branch " + branchId + " name:" + branchName + ", packages:" +lenPackage() + ", trucks:" + lenTrucks() + "";
+	}
+	
+	
+	
+	/**
+	 * collectPackage add package to the list of the local branch.
+	 * */
 	
 	@Override
-	public synchronized void  collectPackage(Package p) {
-		for (Truck v : listTrucks) {
-			if (v.isAvailable()) {
-				synchronized(v) {
-					v.notify();
-				}
-				v.collectPackage(p);
-				return;
-			}
+	public void collectPackage(Package p) {
+		if(p.getStatus() == Status.COLLECTION) {
+			p.setStatus(Status.BRANCH_STORAGE);
+			p.addTracking(this, p.getStatus());
+			this.listPackage.add(p);
+		}else if(p.getStatus() == Status.BRANCH_TRANSPORT) {
+			p.setStatus(Status.DELIVERY);
+			this.listPackage.add(p);
+			p.addTracking(this, p.getStatus());
 		}
 	}
+	
 
 	@Override
-	public synchronized void deliverPackage(Package p) {
-		for (Truck v : listTrucks) {
-			if (v.isAvailable()) {
-				synchronized(v) {
-					v.notify();
-				}
-				v.deliverPackage(p);
-				return;
-			}
-		}	
+	public void deliverPackage(Package p) {
+		this.listPackage.remove(p);
 	}
-
+	
+	protected int lenPackage() {
+		if(getListPackage() == null)
+			return 0;
+		return getListPackage().size();
+	}
+	
+	protected int lenTrucks() {
+		if(getListTrucks() == null)
+			return 0;
+		return getListTrucks().size();
+	}
+	
+	public String getName() {
+		return "Branch " + getBranchId();
+	}
+	
+	
+	/**
+	 * A work unit performed by a branch at every clock of the system clock
+	 * For each package that is in the branch, if it is in the waiting status for collection from a customer, an attempt is made to collect.
+	 * If there is a vehicle available, he goes out to pick up the package. 
+	 * ride time is calculated as follows: the street number of the sender is divided by ten, for the remaining residue add one. 
+	 * The value obtained is updated in the truck in the timeLeft field and the condition of the vehicle changes to "not available".
+	 * 
+	 * The same goes for any package waiting for distribution, if there is a vehicle available, it is sent to deliver the package. 
+	 * Time is calculated according to the same formula, but according to the recipient's address.
+	 * 
+	 * This work also activates the works of vans
+	 * 
+	 * */
 	@Override
 	public void work() {	
-		/*for (Package p: listPackages) {
-			if (p.getStatus()==Status.CREATION) {
-				collectPackage(p);
-			}
-			if (p.getStatus()==Status.DELIVERY) {
-				deliverPackage(p);
-			}
-		}*/	
-	}
-
-	
-	private boolean arePackagesInBranch() {
-		for(Package p: listPackages) {
-			if (p.getStatus() == Status.BRANCH_STORAGE)
-				return true;
-		}
-		return false;
-	}
-	
-	public void paintComponent(Graphics g, int y, int y2) {
-		if (arePackagesInBranch())
-			g.setColor(new Color(0,0,153));
-		else
-			g.setColor(new Color(51,204,255));
-   		g.fillRect(20, y, 40, 30);
-   		
-   		g.setColor(new Color(0,102,0));
-   		g.drawLine(60, y+15, 1120, y2);
-   		branchPoint = new Point(60,y+15);
-   		hubPoint = new Point(1120,y2);
-	}
-
-	@Override
-	public void run() {
-		running.set(true);
-		while(running.get()) {
-		    synchronized(this) {
-                while (threadSuspend)
-					try {
-						wait();
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+		for(int i = 0; i < lenTrucks() ; i++) {
+			if(getListTrucks().get(i).isAvailable()) {	
+				for(int j = 0 ; j < lenPackage(); j++) {
+					switch (this.getListPackage().get(j).getStatus()) {
+						case CREATION: {
+							this.getListPackage().get(j).setStatus(Status.COLLECTION);
+							this.getListPackage().get(j).addTracking(((Van)getListTrucks().get(i)), getListPackage().get(j).getStatus());
+							this.getListTrucks().get(i).collectPackage(this.getListPackage().get(j)); //מוסיף לואן 
+							this.getListTrucks().get(i).setTimeLeft((getListPackage().get(j).getSenderAddress().getStreet()/10)%10 + 1);
+							System.out.println("Van " + ((Van)getListTrucks().get(i)).getTruckID() + " is collecting package " + this.getListPackage().get(j).getPackageID() + ", time left: "+ ((Van)getListTrucks().get(i)).getTimeLeft());
+							getListTrucks().get(i).setAvailable(false);
+							break;
+						}
+						case DELIVERY:
+							this.getListPackage().get(j).setStatus(Status.DISTRIBUTION);
+							this.getListPackage().get(j).addTracking(((Van)getListTrucks().get(i)), getListPackage().get(j).getStatus());
+							this.getListTrucks().get(i).collectPackage(this.getListPackage().get(j));
+							this.getListTrucks().get(i).setTimeLeft((getListPackage().get(j).getDestinationAddress().getStreet()/10)%10 + 1);
+							System.out.println("Van " + ((Van)getListTrucks().get(i)).getTruckID() + " is delivering package " + this.getListPackage().get(j).getPackageID() + ", time left: "+ ((Van)getListTrucks().get(i)).getTimeLeft());
+							this.getListTrucks().get(i).setAvailable(false);
+							this.deliverPackage(this.getListPackage().get(j));
+							break;
+						default:
+							break;
+						}
 					}
-		    }
-			synchronized(this) {
-				for (Package p: listPackages) {
-						if (p.getStatus()==Status.CREATION) {
-							collectPackage(p);
-						}
-						if (p.getStatus()==Status.DELIVERY) {
-							deliverPackage(p);
-						}
+				}
+				getListTrucks().get(i).work();
+				if(this.getListTrucks().get(i).getPackages().size() > 0 && this.getListTrucks().get(i).getPackages().get(0).getStatus() == Status.BRANCH_STORAGE) {
+					this.getListTrucks().get(i).getPackages().get(0).addTracking(this, Status.BRANCH_STORAGE);
+					this.getListTrucks().get(i).deliverPackage(this.getListTrucks().get(i).getPackages().get(0));
 				}
 			}
 		}
-	}
 	
-	
-	public synchronized void setSuspend() {
-	   	threadSuspend = true;
-	}
-
-	public synchronized void setResume() {
-	   	threadSuspend = false;
-	   	notify();
-	}
-	@Override
-	public void addObserver() {
-		this.addPropertyChangeListener(MainOffice.getInstance());		
-	}
-
-	@Override
-	public void stop() {
-		running.set(false);		
-	} 
+		
 }
+		
+	

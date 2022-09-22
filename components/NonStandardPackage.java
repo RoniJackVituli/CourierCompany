@@ -11,17 +11,6 @@ public class NonStandardPackage extends Package {
 			System.out.println("Creating " + this);
 	}
 	
-	@Override
-	public Object clone() {
-		Priority priority = this.getPriority();
-		Address senderAddress = (Address)this.getSenderAddress().clone();
-		Address destinationAdress = (Address)this.getDestinationAddress().clone();
-		int width = this.width;
-		int length = this.length;
-		int height = this.height;
-		return new NonStandardPackage(priority, senderAddress, destinationAdress, width, length, height);
-	}
-	
 	
 	public int getWidth() {
 		return width;
