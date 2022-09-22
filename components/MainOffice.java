@@ -1,174 +1,362 @@
 package components;
+
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 
-public class MainOffice{
-	/**
-	 * <h1>The MainOffice class </h1>
-	 * An object of this class manages the entire system, operates a clock,
-	 * the branches and vehicles, 
-	 * creates the packages (simulates customers) and transfers them to the appropriate branches.
-	 * 
-	 * The class has 4 fields: 
-	 * 1. count
-	 * 2. clock - Initialized to zero, each time preceded by one. 
-	 * 			 represents the number of pulses passing from the operation of the system.
-	 * 3. hub - An object of a Hub, containing all the active branches in the game.
-	 * 4. packages - A collection of all the packages that exist in the system 
-	 * 				 (including those that have already been delivered to the customer).
-	 * 
-	 *  @author Roni_Jack_Vituli -> 315369967 , Matan_Ben_Ishay -> 205577349
-	 * */
-	
-	private static int count = 4;
-	private static int clock;
-	private Hub hub; 
-	private ArrayList<Package> packages; 
-		
-	
-	/**
-	 * 
-	 * Constructor that accepts the amount of branches that will be playing and the number of vehicles per branch. 
-	 * The constructor creates a sorting center (Hub) and adds it to standard trucks TrucksForBranch parameter quantity. 
-	 * In addition to adding non-standard truck Hub One.
-	 * After creating branches (Branch) in parameter appears branches 
-	 * and to each such branch adds Van trucks in an amount that matches the trucksForBranch parameter.
-	 * 
-	 * */
+import javax.swing.JPanel;
 
-	public MainOffice(int branches, int trucksForBranch) {
-		hub = new Hub();
-		hub.setListTrucks(new ArrayList<Truck>());
-		hub.setListPackage(new ArrayList<Package>());
-		for(int i=0;i<trucksForBranch;i++) {
-			hub.getListTrucks().add(new StandardTruck());
-		}
-		hub.getListTrucks().add(new NonStandardTruck());
-		System.out.println();
-		for(int i = 0 ; i < branches; i++) {
-			hub.getBranches().add(new Branch("Branch " + i));
-			hub.getBranches().get(i).setListTrucks(new ArrayList<Truck>());
-			hub.getBranches().get(i).setListPackage(new ArrayList<Package>());
-			for(int j = 0; j < trucksForBranch ; j++) {
-				hub.getBranches().get(i).getListTrucks().add(new Van());
-			}
-			System.out.println();
-		}
-		this.packages = new ArrayList<Package>();
+import program.PostSystemPanel;
+
+
+
+public class MainOffice implements Runnable, PropertyChangeListener, observer, StopRunnable {
+
+	private static MainOffice mainOffice;
+	private static int clock=0;
+	private static Hub hub;
+	private static ArrayList<Package> packages=new ArrayList<Package>();
+	private JPanel panel;
+	private ReadWriteLock rwl;
+	private boolean threadSuspend = false;
+	private ArrayList<Customer> customers = new ArrayList<Customer>();
+	private ReadWriteFile readWriteFile;
+	private static int line = 1;
+	private Originator originator = new Originator();
+	private Caretaker caretaker = new Caretaker();
+	private static int numOfClients = 10;
+	private final AtomicBoolean running = new AtomicBoolean(false);
+
+	public static MainOffice getInstance() {
+		return mainOffice;
 	}
-	
-	public static int getClock() {
-		return MainOffice.clock;
+
+	public static MainOffice getInstance(int branches, int trucksForBranch, JPanel panel) {
+		if(mainOffice == null) {
+			synchronized (MainOffice.class) {
+				if(mainOffice == null) {
+					mainOffice = new MainOffice(branches,trucksForBranch, panel);	
+				}
+			}
 		}
+		return mainOffice;
+	}
+
+	private MainOffice (int branches, int trucksForBranch, JPanel panel) {
+		this.panel = panel;
+		//		this.maxPackages = maxPack;
+		addHub(trucksForBranch);
+		addBranches(branches, trucksForBranch);
+		int sizeOfBranch = hub.getBranches().size(), random;
+		for(int i = 0; i < numOfClients ; i++) {
+			random = new Random().nextInt(sizeOfBranch);
+			Address address = new Address(random, new Random().nextInt(999999)+100000);
+			customers.add(new Customer(i+1, address));
+		}
+		try {
+			PrintWriter writer = new PrintWriter(new File("C:/Users/roniz/eclipse-workspace/HW2_solution/src/components/tracking.txt"));
+			writer.print("");
+			writer.close();
+
+		}catch(IOException e) {
+			e.printStackTrace();
+		}
+		readWriteFile = ReadWriteFile.getInstance();
+		System.out.println("\n\n========================== START ==========================");
+	}
+
 	
-	/**
-	 * Function receives as an argument the number of beats them perform system 
-	 * and operates the pulse (tick) the amount of times this.
-	 * */
-	public void play(int playTime) {
-		System.out.println("========================== START ==========================");
-		for(int i = 0 ; i < playTime; i++) {
+	@Override
+	public synchronized void propertyChange(PropertyChangeEvent evt) {
+		Object d = evt.getNewValue();
+		Package p = (Package)evt.getSource();
+		p.setStatus((Status)d);
+		rwl = new ReadWriteLock() {
+			
+			@Override
+			public Lock writeLock() {
+				readWriteFile.writeFile(p.toString(), line++);
+				return null;
+			}
+			
+			@Override
+			public Lock readLock() {
+				// TODO Auto-generated method stub
+				return null;
+			}
+		};
+		rwl.writeLock();
+		
+	}
+
+
+	public static int setLine() {
+		return line++;
+	}
+
+	public static Hub getHub() {
+		return hub;
+	}
+
+
+	public static int getClock() {
+		return clock;
+	}
+
+	public static synchronized ArrayList<Package> getPack(){
+		return packages;
+	}
+	@Override
+	public void run() {
+		
+		Thread hubThrad = new Thread(hub);
+		
+		for(Customer c : customers) {
+			Thread customer = new Thread(c);
+			customer.start();
+		}
+		hubThrad.start();
+		for (Truck t : hub.listTrucks) {
+			Thread trackThread = new Thread(t);
+			trackThread.start();
+		}
+		for (Branch b: hub.getBranches()) {
+			Thread branch = new Thread(b);
+			for (Truck t : b.listTrucks) {
+				Thread trackThread = new Thread(t);
+				trackThread.start();
+			}
+			branch.start();
+		}
+		for(Customer c: customers) {
+			Thread CustomerThread = new Thread(c);
+			CustomerThread.start();
+		}
+		running.set(true);
+		while(running.get()) {
+			synchronized(this) {
+				while (threadSuspend)
+					try {
+						wait();
+					} catch (InterruptedException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+			}
 			tick();
 		}
-		System.out.println("========================== STOP ==========================");
-		printReport();
+	}
+
+
+	public static int getNumOfClients() {
+		return numOfClients;
 	}
 	
-	/**
-	 * Prints a tracking report for all existing packages in the system: 
-	 * For each package prints the entire contents of the collection tracking of the package
-	 * */
 	public void printReport() {
-		System.out.println("");
-		for(int i = 0 ; i < this.packages.size() ; i++) {
-			System.out.println("Tracking " + this.packages.get(i).toString());
-			this.packages.get(i).printTracking();
-			System.out.println("");
+		for (Package p: packages) {
+			System.out.println("\nTRACKING " +p);
+			for (Tracking t: p.getTracking())
+				System.out.println(t);
 		}
 	}
-	
+
+
 	public String clockString() {
-		int sec = getClock() % 60; 
-		int minutes = getClock() / 60;
-		return String.format("%02d:%02d", minutes, sec);
+		String s="";
+		int minutes=clock/60;
+		int seconds=clock%60;
+		s+=(minutes<10) ? "0" + minutes : minutes;
+		s+=":";
+		s+=(seconds<10) ? "0" + seconds : seconds;
+		return s;
 	}
-	
-	
-	/**
-	 * Each time you activate this function, the following actions are performed:
-	 * 1. The clock is printed and promoted at one. example: MM:SS
-	 * 2. All branches, Hub and Trucks perform one work unit.
-	 * 3. Every 5 beats a random new package is created(SmallPackage , StandardPackage, NonStandardPackage).
-	 * 4. After the last beat, a notice of termination of employment is printed ("STOP").
-	 * 5. Then a transfer history report is printed for all packages created during the run
-	 * */
+
+
 	public void tick() {
+		try {
+			Thread.sleep(300);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		System.out.println(clockString());
-		MainOffice.clock++;
-		MainOffice.count++;
-		if(MainOffice.count == 5) {
-			addPackage();
-			MainOffice.count = 0;
+		clock++;
+		//		if (clock++%5==0) {
+		//			addPackage();
+		//		}
+		/*branchWork(hub);
+		for (Branch b:hub.getBranches()) {
+			branchWork(b);
+		}*/
+		panel.repaint();
+	}
+	
+	
+
+	public void branchWork(Branch b) {
+		for (Truck t : b.listTrucks) {
+			t.work();
 		}
-		hub.work();
+		b.work();
+	}
+
+
+	public void addHub(int trucksForBranch) {
+		hub=new Hub();
+		for (int i=0; i<trucksForBranch; i++) {
+			Truck t = new StandardTruck();
+			hub.addTruck(t);
+		}
+		Truck t=new NonStandardTruck();
+		hub.addTruck(t);
+	}
+
+
+	public void addBranches(int branches, int trucks) {
+		for (int i=0; i<branches; i++) {
+			Branch branch=new Branch();
+			for (int j=0; j<trucks; j++) {
+				branch.addTruck(new Van());
+			}
+			hub.add_branch(branch);		
+		}
+	}
+
+
+	public synchronized void setSuspend() {
+		threadSuspend = true;
 		
-	}
-	
-	
-	/**
-	 * addPackage is activated every 5 beats.
-	 * Label the type of package (small / standard / non-standard) the priority, the addresses of the sender and recipient 
-	 * (so that they match the requirements in the Address class)
-	 * Also depending on the type of package raffled off the additional data:
-	 * 		1.for a small package the value of acknowledge is drawn.
-	 * 		2.for a standard package the weight is drawn - an actual number between 1 and 10.
-	 * 		3.for a non-standard package from the height grills (integer up to 400), The width (integer up to 500), and length (integer up to 1000).
-	 * 
-	 * After the data is drawn, a suitable package is created and associated with the appropriate branch: 
-	 * small or standard packages are transferred to a local branch 
-	 * and non-standard packages are delivered to HUB
-	 * 
-	 * */
-	public void addPackage() {
-		Package p = null;
-		Random rand = new Random();
-		Address senderAddress, destintionAddress;
-		Priority [] VALUES = Priority.values();
-		int SIZE = Priority.values().length;
-		senderAddress = new Address(rand.nextInt(this.hub.getBranches().size()) ,rand.nextInt(1000000-99999) + 99999);
-		destintionAddress = new Address(rand.nextInt(this.hub.getBranches().size()) ,rand.nextInt(1000000-99999) + 99999);		
-		int x = rand.nextInt(4-1)+1;
-		switch(x) {
-		  case 1:
-			  	p = new SmallPackage(VALUES[rand.nextInt(SIZE)], senderAddress, destintionAddress, rand.nextBoolean());
-			  	p.addTracking(null, p.getStatus());
- 		    break;
-		  case 2:
-			   	p = new StandardPackage(VALUES[rand.nextInt(SIZE)], senderAddress, destintionAddress, RandFloat());
-			   	p.addTracking(null, p.getStatus());
- 			  break;
-		  case 3:
-			  	p = new NonStandardPackage(VALUES[rand.nextInt(SIZE)], senderAddress, destintionAddress, rand.nextInt(500), rand.nextInt(1000), rand.nextInt(400));
-			  	p.addTracking(null, p.getStatus());
-			  break;
+		for(Customer c: customers) {
+			c.setSuspend();
 		}
-		if(p != null) {
-			this.packages.add(p);
-
+		
+		for (Truck t : hub.listTrucks) {
+			t.setSuspend();
 		}
-		if(p instanceof SmallPackage || p instanceof StandardPackage) {
-			this.hub.getBranches().get(p.getSenderAddress().getZip()).getListPackage().add(p);       
-		}else if(p instanceof NonStandardPackage) {
-			this.hub.getListPackage().add(p);
+		for (Branch b: hub.getBranches()) {
+			for (Truck t : b.listTrucks) {
+				t.setSuspend();
+			}
+			b.setSuspend();
 		}
-	}
-	
-
-	public float RandFloat() {
-		float leftLimit = 1F;
-	    float rightLimit = 10F;
-	    return leftLimit + new Random().nextFloat() * (rightLimit - leftLimit);
+		hub.setSuspend();
 	}
 
+
+
+	public synchronized void setResume() {
+		threadSuspend = false;
+		notify();
+		hub.setResume();
+		for (Truck t : hub.listTrucks) {
+			t.setResume();
+		}
+		for (Branch b: hub.getBranches()) {
+			b.setResume();
+			for (Truck t : b.listTrucks) {
+				t.setResume();
+			}
+		}
+		for(Customer c: customers)
+			c.setResume();
 	
+	}
+
+	@Override
+	public void addObserver() {
+		for (Truck t : hub.listTrucks) {
+			t.addObserver();
+		}
+		hub.addObserver();
+		for (Branch b: hub.getBranches()) {
+			for (Truck t : b.listTrucks) {
+				t.addObserver();
+			}
+			b.addObserver();
+		}	
+	}
+	
+	public void addBranch(int index) {
+		this.setSuspend();
+		originator.setMainOffice(this);
+		Memento memento = originator.createMemento();
+		caretaker.addMemento(memento);
+		hub.addBranch(index);	
+		System.out.println("Packages After add Branch =====> " + this.getPack().size());
+		this.setResume();
+
+		System.out.println("HUB AFTER ADD BRANCH===> " + hub.toString());
+	}
+	
+	public void restore() {
+		this.setSuspend();
+		this.stop();
+		Memento memento = caretaker.getMemento();
+		if(memento != null) {
+			System.out.println(memento.getHub().toString());
+			hub = memento.getHub();
+			packages = memento.getPackages();
+		}
+		System.out.println(" PACKAGES AFTER RESTORE =========> SIZE: " + this.packages.size() + 
+				"\nTHE PACKAGES ON THE SYSTEM " + this.packages.toString());
+		this.setResume();
+		new Thread(this).start();
+//		new Thread(hub).start();
+//		for (Truck t : hub.listTrucks) {
+//			Thread trackThread = new Thread(t);
+//			trackThread.start();
+//		}
+//		for (Branch b: hub.getBranches()) {
+//			Thread branch = new Thread(b);
+//			for (Truck t : b.listTrucks) {
+//				System.out.println("WHAT TRUCK IAM: "+ t.toString());
+//				Thread trackThread = new Thread(t);
+//				trackThread.start();
+//			}
+//			branch.start();
+//		}
+//		
+		if(!caretaker.isEmpty())
+			PostSystemPanel.subBranches();
+		System.out.println("SUCCSES");
+	}
+
+	public static void callSetSuspend() {
+		mainOffice.setSuspend();
+	}
+
+	public void stop() {
+		
+		for (Truck t : hub.listTrucks) {
+			t.stop();
+		}
+		for (Branch b: hub.getBranches()) {
+			for (Truck t : b.listTrucks) {
+				t.stop();
+			}
+			b.stop();
+		}
+		hub.stop();
+		running.set(false);	
+	}
+
+
+	public ArrayList<Customer> getCustomers() {
+		return customers;
+	}
+	
+	public static void callStop() {
+		mainOffice.stop();
+	}
+
 }

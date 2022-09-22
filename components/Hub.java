@@ -1,184 +1,143 @@
 package components;
-/* This Class describes the main office of the Courier company  */
+
 import java.util.ArrayList;
 import java.util.Random;
-//import java.lang.Math;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import program.PostSystemPanel;
 
-
-public class Hub extends Branch implements Node{ 
-	/**
-	 * <h1>The Hub class</h1>
-	 * Hub represents a main branch.
-	 * 
-	 * It has a field with the array of the other branches:
-	 * branches -> all the branches in program.
-	 * 
-	 *  @author Roni_Jack_Vituli -> 315369967 , Matan_Ben_Ishay -> 205577349
-	 * */
+public class Hub extends Branch{
 	
+	private ArrayList<Branch> branches=new ArrayList<Branch>();
+	private int currentIndex=0;
 	
-	private static int whereToGo = 0;
-	private ArrayList<Branch> branches;
-	
-	/**
-	 * A default constructor, 
-	 * Creates a branch object with the name HUB
-	 * */
 	public Hub() {
 		super("HUB");
-		this.branches = new ArrayList<Branch>();
+	}
+	
+	public Hub(Branch [] blist, Package[] plist, Truck[] tlist) {
+		super("HUB",plist ,tlist);
+		addBranches(blist);
+	}
+	
+	
+	public synchronized void addBranches(Branch[] blist) {
+		for (Branch br: blist)
+			branches.add(br);
+	}
+	
+	@Override	
+	public Object clone() {
+		Package[] packages = new Package[this.getPackages().size()];
+		Truck[] trucks = new Truck[this.getTrucks().size()];
+		Branch [] branches = new Branch[this.getBranches().size()];
+		for(int i = 0 ; i < this.getPackages().size() ; i++) {
+			packages[i] = (Package)this.getPackages().get(i).clone();
+		}
+		for(int i = 0 ; i < this.getTrucks().size() ; i++) {
+			if(this.getTrucks().get(i) instanceof StandardTruck)
+				trucks[i] = (StandardTruck)this.getTrucks().get(i).clone();
+			else if(this.getTrucks().get(i) instanceof NonStandardTruck)
+				trucks[i] = (NonStandardTruck)this.getTrucks().get(i).clone();
+		}
+		for(int i = 0 ; i < this.getBranches().size() ; i++) {
+			branches[i] = (Branch)this.getBranches().get(i).clone();
+		}
+		Object hub = new Hub(branches, packages,trucks);
+		return hub;
+		
 	}
 
 	public ArrayList<Branch> getBranches() {
 		return branches;
 	}
 
-
-	public void setBranches(ArrayList<Branch> branches) {
-		this.branches = branches;
-	}
-
-	/**
-	 *Collection of packages to the main branch
-	 * */
-	@Override
-	public void collectPackage(Package p) {
-		if(p.getStatus() == Status.HUB_TRANSPORT)
-			p.setStatus(Status.HUB_STORAGE);
-		p.addTracking(this, p.getStatus());
-		this.getListPackage().add(p);
-	}
-	/**
-	 * Delivers packages for loads
-	 * */
-	@Override
-	public void deliverPackage(Package p) {
-		if(p instanceof NonStandardPackage)
-			this.getListTrucks().get(lenTrucks()-1).collectPackage(p);
-		this.getListPackage().remove(p);
+	
+	public void add_branch(Branch branch) {
+		branches.add(branch);
+		System.out.println("ALL THE BRANCHES " + branches.toString() + "Size of Branches " + branches.size());
 	}
 	
-	public String getName() {
-		return "HUB";
-	}
+	public void addBranch(int index) {
+		System.out.println("INDEX " + index + "THE BRANCH COPY " + this.getBranches().get(index-1).getName());
+		Branch branch = (Branch)this.getBranches().get(index-1).clone();
+		add_branch(branch);
+		PostSystemPanel.addBranches();
 		
+	}
 	
-	/**
-	 * A work unit that is performed in one clock
-	 * 
-	 * Standard Truck:
-	 * 		For each standard sorting center truck, if the truck is available, it is shipped to some local branch in order.
-	 *		For the purpose of the trip, the truck will load all the packages that are waiting to be transferred to the branch to which it is traveling, as long as the weight of the packages is less than the maximum weight it can carry.
-	 * 		The status of the packages and their history are updated accordingly, a message is printed stating that the truck is leaving for this branch, the travel time is a lottery value between 1 and 10.
-	 * 		example: "StandardTruck 'X' is on it's way to Branch 'Y', time to arrive: 'T' "
-	 * 		X -> truckID
-	 * 		Y -> branchID
-	 * 		T -> time to arrive.
-	 * 
-	 * NonStandard Truck:
-	 * 		If the non-standard truck is available, it will be checked whether there is a non-standard package in the sorting center that is waiting to be collected and that its dimensions fit the truck. 
-	 * 		If so, the truck will be sent to pick up the package. 
-	 * 		The collection of the non-standard package from a customer is done according to exactly the same rules as the other packages, only by a non-standard truck.
-	 * 
-	 * The function also runs its work on each branch.
-	 * */
+	public synchronized void sendTruck(StandardTruck t) {
+		synchronized(t) {
+			t.notify();
+		}
+		t.setAvailable(false);
+		t.setDestination(branches.get(currentIndex));
+		t.load(this, t.getDestination(), Status.BRANCH_TRANSPORT);
+		
+		
+		t.setTimeLeft(((new Random()).nextInt(10)+1)*10);
+		t.initTime = t.getTimeLeft();
+		System.out.println(t.getName() + " is on it's way to " + t.getDestination().getName() + ", time to arrive: "+t.getTimeLeft());	
+		currentIndex=(currentIndex+1)%branches.size();
+	}
+	
+	
+	public synchronized void shipNonStandard(NonStandardTruck t) {
+		for (Package p: listPackages) {
+			if (p instanceof NonStandardPackage) {
+				/*if (((NonStandardPackage) p).getHeight() <= t.getHeight() 
+					&& ((NonStandardPackage) p).getLength()<=t.getLength()
+					&& ((NonStandardPackage) p).getWidth()<=t.getWidth()){*/
+						synchronized(t) {
+							t.notify();
+						}
+						t.collectPackage(p);
+						listPackages.remove(p);
+						return;
+					//}
+			}
+		}	
+	}
+	
+	
+	@Override
 	public void work() {
-		Random rand = new Random();	
-		for(int i = 0 ; i < getListTrucks().size() ; i++) {
-			if(getListTrucks().get(i) instanceof StandardTruck) {
-			
-				if(getListTrucks().get(i).isAvailable()) {			
-					((StandardTruck)getListTrucks().get(i)).setDestination(this);
-					this.getListTrucks().get(i).setTimeLeft(rand.nextInt(10-1)+1);
-					getListTrucks().get(i).work();	
-					((StandardTruck)getListTrucks().get(i)).setDestination(this.getBranches().get(whereToGo()));					
-					System.out.println("StandardTruck "+ this.getListTrucks().get(i).getTruckID() +" is on it's way to " + ((StandardTruck)getListTrucks().get(i)).getDestination().getBranchName()+ ", time to arrive: "+ (this.getListTrucks().get(i).getTimeLeft() + 1));
-					
-					 
-				}else if(getListTrucks().get(i).getTimeLeft() == 0 && ((StandardTruck)getListTrucks().get(i)).getDestination().getBranchId() != -1){ // check if is arrive to one of the branches
-					getListTrucks().get(i).work();
-					getListTrucks().get(i).setTimeLeft(rand.nextInt(7-1)+1);
-					System.out.println("StandardTruck "+ getListTrucks().get(i).getTruckID() +" is on it's way to HUB, time to arrive: " + getListTrucks().get(i).getTimeLeft());
-					((StandardTruck)getListTrucks().get(i)).setDestination(this);
-					getListTrucks().get(i).work();
-				
-				}else if(getListTrucks().get(i).getTimeLeft() == 0 && ((StandardTruck)getListTrucks().get(i)).getDestination().getBranchId() == -1){ // check if is arrive to HUB 
-					getListTrucks().get(i).work();
-					this.getListTrucks().get(i).setTimeLeft(rand.nextInt(10-1)+1);
-					((StandardTruck)getListTrucks().get(i)).setDestination(this.getBranches().get(whereToGo()));		
-					System.out.println("StandardTruck "+ getListTrucks().get(i).getTruckID() +" is on it's way to " + ((StandardTruck)getListTrucks().get(i)).getDestination().getBranchName() + ", time to arrive: " + getListTrucks().get(i).getTimeLeft());
-					this.getListTrucks().get(i).setAvailable(false);
-					addPackageToTruck(getListTrucks().get(i));
-					getListTrucks().get(i).work();
-					
-				}else{
-			
-					getListTrucks().get(i).work();
-				}	
-				
-			}else if(getListTrucks().get(i) instanceof NonStandardTruck) {
-				for(int j = 0 ; j < lenPackage() && getListTrucks().get(i).isAvailable() ; j++) {
-					if(this.getListPackage().get(j) instanceof NonStandardPackage && isThereNonStandradPackageAndCapacity(getListTrucks().get(i), this.getListPackage().get(j))) {
-						this.getListPackage().get(j).setStatus(Status.COLLECTION);
-						this.getListPackage().get(j).addTracking(((NonStandardTruck)getListTrucks().get(i)), this.getListPackage().get(j).getStatus());
-						getListTrucks().get(i).setTimeLeft(rand.nextInt(10-1)+1);
-						System.out.println("NonStandartTruck " + getListTrucks().get(i).getTruckID() + " is collecting package " + this.getListPackage().get(j).getPackageID() + ", time left: "+ getListTrucks().get(i).getTimeLeft());
-						this.deliverPackage(this.getListPackage().get(j));
-						getListTrucks().get(i).setAvailable(false);
+
+	}
+	
+
+	@Override
+	public void run() {
+		this.running.set(true);
+		while(running.get()) {
+		    synchronized(this) {
+                while (threadSuspend)
+					try {
+						wait();
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
 					}
-				}
-				getListTrucks().get(i).work();
-			}
-		}// loop
-		
-		
-		for(int i = 0 ; i < this.getBranches().size() ; i++) { //Work Branches.
-			this.getBranches().get(i).work();		
-			}
-	}	
-	
-	
-	// Returns true whether it is a small or standard package
-	public boolean StandardOrSmall(Package p) {
-		return p instanceof SmallPackage || p instanceof StandardPackage;
-	}
-	
-	
-	
-	//Checks if the non-standard package can fit in the non-standard truck
-	public boolean isThereNonStandradPackageAndCapacity(Truck T, Package p) {
-		if(((NonStandardTruck)T).capacity() >= ((NonStandardPackage)p).capacity()) {
-				return true;
-		}
-		return false;
-	}
-	
-	
-	
-	private void addPackageToTruck(Truck T) {
-		for(int i = 0; i < this.lenPackage() ; i++) {
-			if(T instanceof StandardTruck && StandardOrSmall(this.getListPackage().get(i))) {
-				if(this.getListPackage().get(i).getDestinationAddress().getZip() == ((StandardTruck)T).getDestination().getBranchId()) {
-					T.collectPackage(this.getListPackage().get(i));
-					this.deliverPackage(this.getListPackage().get(i));
-				}
+		    }
+			for (Truck t : listTrucks) {
+				if (t.isAvailable()){
+					if(t instanceof NonStandardTruck) {
+						shipNonStandard((NonStandardTruck)t);
+					}
+					else {
+						sendTruck((StandardTruck)t);
+					}
+				}	
 			}
 		}
 	}
 	
-	/**
-	 * 
-	 * The whereToGo function brings me the ride arrangement to the branches.
-	 * 
-	 * */
-	
-	public int whereToGo() {
-		if(Hub.whereToGo == getBranches().size()) {
-			Hub.whereToGo = 0;
-			return Hub.whereToGo++;
-		}
-		return Hub.whereToGo++;
+	@Override
+	public String toString() {
+		if(this.getBranches() != null)
+			return "NameBranch: " + this.getName() + " NumOfBranches: " + this.getBranches().size() + " NumOfTrucks: " + this.getTrucks().size();
+		return "";
 	}
-	
+
+
 }

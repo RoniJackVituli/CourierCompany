@@ -1,256 +1,242 @@
 package components;
+
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.util.Random;
 
-/**
- * <h1>The StandardTruck class</h1>
- * represents a truck for transporting packages from the hub to branches and back and inherits from a Truck class.
- * all trucks belong to the hub.
- * The class has two fields:
- * 1. maxWeight -> the maximum weight that the truck can load.
- * 2. destination -> the destination branch that the truck needs to ride or drive back to the hub.
- *
- * @author Roni_Jack_Vituli -> 315369967 , Matan_Ben_Ishay -> 205577349
- * */
-
-public class StandardTruck extends Truck implements Node{
-	
+public class StandardTruck extends Truck{
 	private int maxWeight;
-	private Branch destination;
-	/**
-	 * 
-	 * Default Constructor of the class
-	 * activates Truck Constructor using super
-	 * creates a random weight between 300 and 200
-	 * Then runs the toString function and prints the generated data.
-	 * */
-	public StandardTruck (){
+	private Branch destination=null;
+	private Branch source = null;
+	private PropertyChangeSupport support; 
+
+	public StandardTruck() {
 		super();
-		Random rand = new Random();
-		this.maxWeight = rand.nextInt(300-200)+200;
-		System.out.println("Creating " + this.toString());	
+		maxWeight=((new Random()).nextInt(2)+2)*100;
+		System.out.println("Creating "+ this);
+		support = new PropertyChangeSupport(this); 
 	}
-	/**
-	 * 
-	 * Constructor of the class
-	 * get three parameters 
-	 * @param licensePlate 
-	 * @param truckModel
-	 * @param maxWeight
-	 * activates Truck Constructor using super 
-	 * Then runs the toString function and prints the generated data.
-	 * */
+
+
+
+
 	public StandardTruck(String licensePlate,String truckModel,int maxWeight) {
-		super(licensePlate, truckModel);
-		 this.maxWeight = maxWeight;
-		 System.out.println("Creating " + this.toString());	
-	}
-	/**
-	 * 
-	 * Copy Constructor of the class
-	 * get one parameter(object) 
-	 * @param standardTruck 
-	 * and copy the truck to the new truck.
-	 * */
-	public StandardTruck(StandardTruck standardTruck) { // Copy Ctor.
-		this.maxWeight = standardTruck.getMaxWeight();
-		this.destination = standardTruck.getDestination();
+		super(licensePlate,truckModel);
+		this.maxWeight=maxWeight;
+
+		support = new PropertyChangeSupport(this); 
 	}
 
-	
-	/**
-	 * collectPackage checks the status of the package under two conditions:
-	 * 1. If the status of the package is BRANCH_STORAGE then the package is collected from the local branch to the hub
-	 * 2. else if the status of the package is HUB_STORAGE then the package is collected from hub to the destination branch 
-	 * */
-	@Override
-	public void collectPackage(Package p) {
-			if(p.getStatus() == Status.BRANCH_STORAGE) {
-				if(addPackageToTruck(p)) {
-					p.setStatus(Status.HUB_TRANSPORT);
-					p.addTracking(this, p.getStatus());
-					this.addPackageSuccessed();
-				}					
-			}else if(p.getStatus() == Status.HUB_STORAGE && this.destination.getBranchId() == p.getDestinationAddress().getZip())
-				if(addPackageToTruck(p)) {
-					p.setStatus(Status.BRANCH_TRANSPORT);
-					p.addTracking(this, p.getStatus());
-					this.addPackageSuccessed();
-				}	
-		}
-		
-	
-	/**
-	 * downPackage downloads packages from a truck to the destination it arrived at.
-	 * */
-	public void downPackages() {
-		for(int i = 0; i < lenPackage(); i++) {
-			deliverPackage(this.getPackages().get(i));
-			if(removePackage(this.getPackages().get(i))) {
-				i--;
-				this.subPackageSuccessed();
-			}
-		}
-	}
-	
-	public boolean removePackage(Package p) {
-		for(int i = 0 ; i < lenPackage(); i++) {
-			if(this.getPackages().get(i).equals(p)) {
-				this.getPackages().remove(i);
-				return true;
-			}
-		}
-		return false;
-	}
-	/**
-	 * upPackage uploads packages from a truck from where it is.
-	 * */
-	public void upPackages() {
-		for(int i = 0 ; i < this.destination.getListPackage().size() ; i++) {
-			if(this.destination instanceof Hub)
-				collectPackage(this.destination.getListPackage().get(i));
-			else if(this.destination.getListPackage().get(i).getStatus() == Status.BRANCH_STORAGE)
-				collectPackage(this.destination.getListPackage().get(i));				
-			if(this.isAdd()) {
-				this.destination.deliverPackage(this.destination.getListPackage().get(i));
-				i--;
-			}
-		}
-	}
-	
-	
-	
-	@Override
-	public void deliverPackage(Package p) { 
-		this.destination.collectPackage(p); 
-	
-	}
-	
-	public int getMaxWeight() {
-		return maxWeight;
-	}
 
-	public void setMaxWeight(int maxWeight) {
-		this.maxWeight = maxWeight;
-	}
-	
-	public String getName() {
-		return "StandardTruck " + this.getTruckID();
-	}
-	
-	
-	
-	/**
-	 * The work function performs one work unit.
-	 * A truck that is on the ride reduces the time left to complete the task
-	 * If after the reduction the time value is equal to zero then the ride is over
-	 * need to print accordingly notice that the truck has reached its destination
-	 * example:   " StandardTruck X arrived to Branch Y
-					StandardTruck X unloaded packages at Branch Y
-					StandardTruck X loaded packages at Branch Y
-					StandardTruck X is on it's way to Z, time to arrive: T"
-					X -> truckID
-					Y -> branchID
-					Z -> destination 
-					T -> time to arrive. 
-	 * 		
-	 * If the ride ended in a hub then the truck becomes available.
-	 * */
-	@Override
-	public void work() {
-		
-		if(this.getTimeLeft() == 0) {
-			
-			System.out.println("StandardTruck "+ this.getTruckID() + " arrived to " + this.getDestination().getBranchName());
-	
-			System.out.println("StandardTruck "+ this.getTruckID() + " unloaded packages at " + this.getDestination().getBranchName());
-			downPackages();
-			
-			System.out.println("StandardTruck "+ this.getTruckID() + " loaded packages at "+this.getDestination().getBranchName());
-			upPackages();
-			
-			if(getDestination().getBranchId() == -1) {
-				this.setAvailable(true);
-			}
-			
-		}else if(isAvailable()){
-			System.out.println("StandardTruck "+ this.getTruckID() + " loaded packages at "+this.getDestination().getBranchName());
-			upPackages();
-			setAvailable(false);
-			
-		}
-			
-		this.setTimeLeft(-1);
-
-	}
-
-	
 	public Branch getDestination() {
 		return destination;
 	}
+
+	public void stop() {
+		running.set(false);	
+	}
+
+	@Override
+	public Object clone() {
+		System.out.println("Standrat Clone");
+		String licensePlate = this.getLicensePlate();
+		String truckModel = this.getTrukModel();
+		int maxWeight = getMaxWeight();
+		return new StandardTruck(licensePlate, truckModel, maxWeight);
+	} 
+
 
 	public void setDestination(Branch destination) {
 		this.destination = destination;
 	}
 
+
+	public int getMaxWeight() {
+		return maxWeight;
+	}
+
+
+	public void setMaxWeight(int maxWeight) {
+		this.maxWeight = maxWeight;
+	}
+
+
 	@Override
-	
-	
 	public String toString() {
-		return "StandardTruckTruck [truckID = " + this.getTruckID()+ ", licensePlate = "+this.getLicensePlate()+", truckModel = " + this.getTruckModel()+ ", available = "+this.isAvailable()+", maxWeight = "+this.maxWeight + "]";
+		return "StandartTruck ["+ super.toString() +",maxWeight=" + maxWeight + "]";
 	}
-		
 
-	
-	/**
-	 * addPackageToTruck is a function that checks:
-	 * 1.If the package received is a small or standard package
-	 * 2.Check that the total weight of the packages in the truck + the weight of the new package does not exceed the maximum weight of the truck
-	 * If all conditions are met:
-	 * @return true 
-	 * else 
-	 * @return false
-	 * */
-	public boolean addPackageToTruck(Package p) {
-		if(p instanceof NonStandardPackage)
-			return false;
-		if(allWeightPackage(p) <= this.getMaxWeight() && p.getStatus() == Status.HUB_STORAGE ) {
-			this.getPackages().add(p);
-			return true;
-		}else if(allWeightPackage(p) <= this.getMaxWeight() && p.getStatus() == Status.BRANCH_STORAGE){
-			this.getPackages().add(p);
-			return true;
+
+	public void unload (Branch dest) {
+		Status status;
+		synchronized(dest) {
+			if (dest==MainOffice.getHub())
+				status=Status.HUB_STORAGE;
+			else 
+				status=Status.DELIVERY;
+
+			for (Package p: getPackages()) {
+				support.firePropertyChange(new PropertyChangeEvent(p, "Status", p.getStatus(), status));
+				//				p.setStatus(status);
+				dest.addPackage(p);
+				p.addTracking(dest, status);	
+			}
+			getPackages().removeAll(getPackages());
+			System.out.println("StandardTruck " + getTruckID() + " unloaded packages at " + destination.getName());
 		}
-		return false;
 	}
-	
-	
-	/**
-	 * The allWeightPackage function calculates 
-	 * the weight of all the packages in the truck including the new package that needs to enter.
-	 * @return sum
-	 * */
-	
-	public int allWeightPackage(Package p) {
-		int sum = 0;
-		for(int i = 0; i < lenPackage(); i++) {
-			sum += this.getPackages().get(i).weight();
+
+
+	public void load (Branch sender, Branch dest, Status status) {
+		double totalWeight=0;
+		synchronized(sender) {
+			for (int i=0; i< sender.listPackages.size();i++) {
+				Package p=sender.listPackages.get(i);
+				if (p.getStatus()==Status.BRANCH_STORAGE || (p.getStatus()==Status.HUB_STORAGE && MainOffice.getHub().getBranches().get(p.getDestinationAddress().zip)==dest)) {
+					if (p instanceof SmallPackage && totalWeight+1<=maxWeight || totalWeight+((StandardPackage)p).getWeight()<=maxWeight) {
+						getPackages().add(p);
+						sender.listPackages.remove(p);
+						i--;
+						support.firePropertyChange(new PropertyChangeEvent(p, "Status", p.getStatus(), status));
+						//						p.setStatus(status);
+						p.addTracking(this, status);
+					}
+				}
+			}
+			System.out.println(this.getName() + " loaded packages at " + sender.getName());
 		}
-		sum += p.weight();
-		return sum;
 	}
 
-	
-	
-	private int lenPackage() {
-		if(this.getPackages() == null)
-			return 0;
-		return this.getPackages().size();
-		
+
+	@Override
+	public void run() {
+		this.running.set(true);
+		while(running.get()) {
+			try {
+				Thread.sleep(300);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			synchronized(this) {
+				while (threadSuspend)
+					try {
+						wait();
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+			}
+			if (!isAvailable()) {
+				setTimeLeft(getTimeLeft()-1);
+				if (getTimeLeft()==0) {
+					System.out.println("StandardTruck "+ getTruckID()+ " arrived to " + destination.getName());
+					unload(destination);
+					if (destination==MainOffice.getHub()) {
+						setAvailable(true);
+					}
+
+					else {
+						load(destination, MainOffice.getHub(), Status.HUB_TRANSPORT);
+						setTimeLeft(((new Random()).nextInt(6)+1)*10);
+						this.initTime = this.getTimeLeft();
+						source = destination;
+						destination=MainOffice.getHub();
+						System.out.println(this.getName() + " is on it's way to the HUB, time to arrive: "+ getTimeLeft());
+					}			
+				}
+			}
+			else
+				synchronized(this) {
+					try {
+						wait();
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+		}
 	}
 
-	
-	
-	
+
+	public void work() {
+
 	}
-	
-	
+
+
+	@Override
+	public void paintComponent(Graphics g) {
+		Point start=null;
+		Point end=null;
+		Color col = new Color(102,255,102);
+		if (this.getPackages()==null || destination==null) return;
+
+		if (this.getPackages().size()==0) {
+			if (destination!=MainOffice.getHub()) {
+				end = this.destination.getBranchPoint();
+				start = this.destination.getHubPoint();
+			}
+			else {
+				start = this.source.getBranchPoint();
+				end = this.source.getHubPoint();
+			}
+		}
+		else {			
+			Package p = this.getPackages().get(getPackages().size()-1);
+			col = new Color(0,102,0);
+			if (p.getStatus()==Status.HUB_TRANSPORT) {
+				start = this.source.getBranchPoint();
+				end = this.source.getHubPoint();
+			}
+			else if (p.getStatus()==Status.BRANCH_TRANSPORT){
+				end = this.destination.getBranchPoint();
+				start = this.destination.getHubPoint();
+			}
+		}
+
+
+		if (start!=null) {
+			int x2 = start.getX();
+			int y2 = start.getY();
+			int x1 = end.getX();
+			int y1 = end.getY();
+
+			double ratio = (double) this.getTimeLeft()/this.initTime;
+			//System.out.println(x2+" "+x1+" "+ratio);
+			double length = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+			int dX = (int) (ratio*(x2-x1));
+			int dY = (int) (ratio*(y2-y1));
+
+			g.setColor(col);
+			g.fillRect(dX+x1-8, dY+y1-8, 16, 16); 
+			g.setColor(Color.BLACK);
+			g.setFont(new Font("Courier", Font.BOLD,13));
+			if (this.getPackages().size()>0)
+				g.drawString(""+this.getPackages().size(), dX+x1-3, dY+y1-8-5);
+			g.fillOval(dX+x1-12, dY+y1-12, 10, 10);
+			g.fillOval(dX+x1, dY+y1, 10, 10);
+			g.fillOval(dX+x1, dY+y1-12, 10, 10);
+			g.fillOval(dX+x1-12, dY+y1, 10, 10);
+		}
+
+	}
+
+	public void addPropertyChangeListener(PropertyChangeListener pcl){ 	
+		support.addPropertyChangeListener(pcl); 
+	} 
+
+	public void removePropertyChangeListener(PropertyChangeListener pcl){ 	
+		support.removePropertyChangeListener(pcl); 
+	}
+
+
+	@Override
+	public void addObserver() {
+		this.addPropertyChangeListener(MainOffice.getInstance());		
+	}
+
+}

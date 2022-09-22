@@ -1,135 +1,172 @@
 package components;
+
+import java.awt.Color;
+import java.awt.Graphics;
 import java.util.ArrayList;
 
-/**
- * <h1> The Class Package </h1>
- * 
- * <p>
- * A package class from which 3 packages will be inherited.
- * It has 6 fields that are:
- * 1. packageID -> Package ID number - the number starts from 1000.
- * 2. priority -> represents the priority of the package.
- * 3. status -> a status that accepts the current status of the package.
- * 4. senderAddress -> The sender address of the package.
- * 5. destinationAddress -> represents the destination address of the package.
- * 6. tracking -> collection of records with transfer history of the package.
 
- * @author Roni_Jack_Vituli -> 315369967 , Matan_Ben_Ishay -> 205577349
- * 
- * */
-
-public abstract class Package{
-	private static int numOfPack = 1000;
-
-	
-	private int packageID; // run number.
-	private	Priority priority;
-	private	Status status;
-	private	Address senderAddress;
+public abstract class Package implements Cloneable{
+	private static int countID=1000;
+	final private int packageID;
+	private Priority priority;
+	private Status status;
+	private Address senderAddress;
 	private Address destinationAddress;
-	private ArrayList<Tracking> tracking; 
+	private ArrayList<Tracking> tracking = new ArrayList<Tracking>();
+	private Branch branch = null;
+	private Point sendPoint;
+	private Point destPoint;
+	private Point bInPoint;
+	private Point bOutPoint;
+
 	
 	
+	public Package(Priority priority, Address senderAddress,Address destinationAdress) {
+		packageID = countID++;
+		this.priority=priority;
+		this.status=Status.CREATION;
+		//set update 
+		this.senderAddress=senderAddress;
+		this.destinationAddress=destinationAdress;
+		tracking.add(new Tracking( MainOffice.getClock(), null, status));
+	}	
 	
-	/**
-	 * this is the constructor of the class.
-	 * gets three parameters and produces a new object.
-	 * @param priority -> Package priority.
-	 * @param senderAddress -> sender's address.
-	 * @param destinationAddress ->Destination address.
-	 * */
-	public Package(Priority priority, Address senderAddress, Address destinationAddress) {
-		
-		this.priority = priority;
-		this.senderAddress = senderAddress; 
-		this.destinationAddress = destinationAddress; 
-		this.packageID = Package.numOfPack++;
-		this.status = Status.CREATION; 
-		this.tracking = new ArrayList<Tracking>();
+	
+	public abstract Object clone();
+
+	public void setBranch(Branch branch) {
+		this.branch = branch;
 	}
 	
-//	public Package(Package p) {
-//		this.priority = p.getPriority();
-//		this.senderAddress = p.getSenderAddress(); 
-//		this.destinationAddress = p.getDestinationAddress();
-//		this.packageID = Package.numOfPack++;
-//		this.status = p.getStatus(); 
-//		this.tracking = p.getTracking();
-//	}
+	public Branch getBranch() {
+		return this.branch;
+	}
 	
-	/**
-	 * Since this is an abstract class I pass these methods on to classes that inherit from it.
-	 * 
-	 * Weight method - should return the weight of the package.
-	 * addTracking method - gets the location of the package and the status of the package and the method adds to tracking
-	 * printTracking - Prints the package history list
-	 * 
-	 * */
-	
-	public abstract double weight();
-	public abstract void addTracking (Node node, Status status);
-	public abstract void printTracking();
-	
+	public Priority getPriority() {
+		return priority;
+	}
 
-	/**
-	 * 
-	 * Methodical sessions of set & gets
-	 * 
-	 * */
-	//GET & SET
+	
+	public void setPriority(Priority priority) {
+		this.priority = priority;
+	}
+
+	
+	public Status getStatus() {
+		return status;
+	}
+
+	
+	public void setStatus(Status status) {
+		this.status = status;
+	}
+
 	
 	public int getPackageID() {
 		return packageID;
 	}
 	
-
-	public Priority getPriority() {
-		return priority;
-	}
-
-
-	public void setPriority(Priority priority) {
-		this.priority = priority;
-	}
-
-
-	public Status getStatus() {
-		return status;
-	}
-
-
-	public void setStatus(Status status) {
-		this.status = status;
-	}
-
-
+	
+	
 	public Address getSenderAddress() {
 		return senderAddress;
 	}
 
-
+	
 	public void setSenderAddress(Address senderAddress) {
 		this.senderAddress = senderAddress;
 	}
 
-
+	
 	public Address getDestinationAddress() {
 		return destinationAddress;
 	}
 
-
-	public void setDestinationAddress(Address destinationAddress) {
-		this.destinationAddress = destinationAddress;
+	
+	public void setDestinationAddress(Address destinationAdress) {
+		this.destinationAddress = destinationAdress;
 	}
 
-
-	public void setTracking(ArrayList<Tracking> tracking) {
-		this.tracking = tracking;
+	
+	public void addTracking(Node node, Status status) {
+		tracking.add(new Tracking(MainOffice.getClock(), node, status));
 	}
-
+	
+	
+	public void addTracking(Tracking t) {
+		tracking.add(t);
+	}
+	
+	
 	public ArrayList<Tracking> getTracking() {
 		return tracking;
 	}
 
+	
+	public void printTracking() {
+		for (Tracking t: tracking)
+			System.out.println(t);
+	}
+	
+	
+	@Override
+	public String toString() {
+		return "packageID = " + packageID + ", priority = " + priority + ", status = " + status
+				+ ", senderAddress = " + senderAddress + ", destinationAddress = " + destinationAddress;
+	}
+	
+	public Point getSendPoint() {
+		return sendPoint;
+	}
+	
+	public Point getDestPoint() {
+		return destPoint;
+	}
+	
+	public Point getBInPoint() {
+		return bInPoint;
+	}
+	
+	public Point getBOutPoint() {
+		return bOutPoint;
+	}
+
+
+	public void paintComponent(Graphics g, int x, int offset) {
+		if (status==Status.CREATION || (branch==null && status == Status.COLLECTION))
+			g.setColor(new Color(204,0,0));
+		else
+			g.setColor(new Color(255,180,180));
+   		g.fillOval(x, 20, 30, 30);
+   		
+   		if (status==Status.DELIVERED)
+   			g.setColor(new Color(204,0,0));
+   		else
+   			g.setColor(new Color(255,180,180));
+   		g.fillOval(x, 583, 30, 30);
+   		
+		
+   		if (branch!=null) {
+	   		g.setColor(Color.BLUE);
+	   		g.drawLine(x+15,50,40,100+offset*this.senderAddress.getZip());
+	   		sendPoint = new Point(x+15,50);
+	   		bInPoint = new Point(40, 100+offset*this.senderAddress.getZip());
+	   		g.drawLine(x+15,583,40,130+offset*this.destinationAddress.getZip());
+	   		destPoint = new Point(x+15,583);
+	   		bOutPoint = new Point(40,130+offset*this.destinationAddress.getZip());
+	   		
+   		}
+   		else {
+   			g.setColor(Color.RED);
+   			g.drawLine(x+15,50,x+15,583);
+   			g.drawLine(x+15,50,1140, 216);
+   			sendPoint = new Point(x+15,50);
+   			destPoint = new Point(x+15,583);
+   			
+   		}
+	}
+
+	
+	
 	
 }

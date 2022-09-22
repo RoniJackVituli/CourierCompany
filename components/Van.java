@@ -1,139 +1,181 @@
 package components;
 
-class Van extends Truck implements Node{
-	/**
-	 * <h1>The Van class</h1> 
-	 * this class collects a package from the sender's address to the local branch and inherits from a Truck class.
-	 * And also delivers the package from branch to destination address. The vehicle can take one package at a time and no more.
-	 * This class has no fields.
-	 *  @author Roni_Jack_Vituli -> 315369967 , Matan_Ben_Ishay -> 205577349
-	 * */
+import java.awt.Color;
+import java.awt.Graphics;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
+
+public class Van extends Truck{
 	
-	
-	
-	
-	/** 
-	 * Default Constructor of the class
-	 * activates Truck Constructor using super
-	 * Then runs the toString function and prints the generated data.
-	 * */
-	
-	public Van() { 
+	private PropertyChangeSupport support; 
+	public Van() {
 		super();
-		System.out.println("Creating "+ this.toString());	
+		System.out.println("Creating " + this);
+		support = new PropertyChangeSupport(this); 
 	}
 	
-	/**
-	 * 
-	 * Constructor of the class
-	 * get two parameters 
-	 * @param licensePlate 
-	 * @param truckModel
-	 * activates Truck Constructor using super 
-	 * Then runs the toString function and prints the generated data.
-	 * */
-	public Van(String licensePlate, String truckModel) {
-		super(licensePlate, truckModel);
-		System.out.println("Creating "+ this.toString());	
+	
+	public Van(String licensePlate,String truckModel) {
+		super(licensePlate,truckModel);
+		support = new PropertyChangeSupport(this); 		
+	}
+	
+	@Override
+	public Object clone() {
+		System.out.println("Van Clone");
+		String licensePlate = this.getLicensePlate();
+		String truckModel = this.getTrukModel();
+		return new Van(licensePlate, truckModel);
+	} 
+	
+	@Override
+	public String toString() {
+		return "Van ["+ super.toString() + "]";
 	}
 	
 	
 	@Override
-	public String toString() {
-		return "Van [truckID = " + this.getTruckID()+ ", licensePlate = "+this.getLicensePlate()+", truckModel = " + this.getTruckModel()+ ", available = "+this.isAvailable()+"]";
+	public synchronized void deliverPackage(Package p) {
+		this.getPackages().add(p);
+		setAvailable(false);
+		int time=(p.getDestinationAddress().street%10+1)*10;
+		this.setTimeLeft(time);
+		this.initTime = time;
+		support.firePropertyChange(new PropertyChangeEvent(p, "Status", p.getStatus(), Status.DISTRIBUTION));
+//		p.setStatus(Status.DISTRIBUTION);
+		p.addTracking(new Tracking(MainOffice.getClock(), this, p.getStatus()));
+		System.out.println("Van "+ this.getTruckID() + " is delivering package " + p.getPackageID() + ", time left: "+ this.getTimeLeft()  );
 	}
 	
 	
-	/**
-	 * 
-	 * A work function performs a work unit under the following conditions:
-	 * 1. If the vehicle is not available it does nothing. 
-	 * 	else:
-	 * 		if the vehicle is in travel time, it reduces the time in the field (timeLeft) by 1.
-	 * 		if after the reduction the time (timeLeft) has reached zero ,so the trip was over.
-	 * 		and now we need to check what the purpose of the trip was:
-	 * 			1.First goal - collection from the customer 
-	 * 				This means that the package at this stage will be transferred from the vehicle to the branch, the status of the package will be updated, 
-	 * 				and a suitable registration will also be added to the tracking list of the package.
-	 * 				Then prints a message that the vehicle picked up the package and came back to the branch.
-	 * 				for example: "Van -X- has collected packages -Y- and arrived back to branch -Z-"
-	 * 				X -> truckID
-	 * 				Y -> packageID
-	 * 				Z -> zip
-	 * 				In addition the Van will become available.
-	 * 			2.Second goal - delivery of the package to the customer.
-	 * 				That is, if the status of the package at the branch is "DISTRIBUTION" 
-	 * 				then the van will collect the package and drive to the customer to deliver it.
-	 * 				If the package was a small package, you should check whether the option of sending a delivery confirmation is activated.
-	 * 				and also updating the records in tracking.
-	 * */
+	@Override
+	public void run() {
+		this.running.set(true);
+		while(running.get()) {
+			try {
+				Thread.sleep(300);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		    synchronized(this) {
+                while (threadSuspend)
+					try {
+						wait();
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+		    }
+			Branch branch=null;
+			if (!this.isAvailable()) {
+				this.setTimeLeft(this.getTimeLeft()-1);
+				if (this.getTimeLeft()==0){
+					for (Package p : this.getPackages()) {
+						if (p.getStatus()==Status.COLLECTION) {
+							branch=MainOffice.getHub().getBranches().get(p.getSenderAddress().zip);
+							synchronized(branch) {
+								support.firePropertyChange(new PropertyChangeEvent(p, "Status", p.getStatus(), Status.BRANCH_STORAGE));
+//								p.setStatus(Status.BRANCH_STORAGE);
+								System.out.println("Van " + this.getTruckID() + " has collected package " +p.getPackageID()+" and arrived back to branch " + branch.getBranchId());
+								branch.addPackage(p);
+							}
+						}
+						else {
+							support.firePropertyChange(new PropertyChangeEvent(p, "Status", p.getStatus(), Status.DELIVERED));
+//							p.setStatus(Status.DELIVERED);
+							branch=MainOffice.getHub().getBranches().get(p.getDestinationAddress().zip);
+							synchronized(branch) {
+								branch.listPackages.remove(p);
+								branch=null;
+								System.out.println("Van " + this.getTruckID() + " has delivered package "+p.getPackageID() + " to the destination");
+								if (p instanceof SmallPackage && ((SmallPackage)p).isAcknowledge()) {
+									System.out.println("Acknowledge sent for package "+p.getPackageID());
+								}
+							}
+						}
+						p.addTracking(new Tracking(MainOffice.getClock(), branch, p.getStatus()));
 	
-	public void work() {
-		if(!this.isAvailable()) {
-			if(this.getTimeLeft() == 0) {
-				if(Purpose(this.getPackages().get(0))){ // מטרה לאסוף.
-					System.out.println("Van " + this.getTruckID() + " has collected packages " + this.getPackages().get(0).getPackageID()+ " and arrived back to branch " + this.getPackages().get(0).getSenderAddress().getZip());
-					this.getPackages().get(0).setStatus(Status.BRANCH_STORAGE);
+					}
+					this.getPackages().removeAll(getPackages());
 					this.setAvailable(true);
-				}else { // המשאית הגיעה ליעד
-					System.out.println("Van "+ this.getTruckID() +" has delivered package "+this.getPackages().get(0).getPackageID() +" to the destination");
-					this.getPackages().get(0).setStatus(Status.DELIVERED);
-					if(this.getPackages().get(0) instanceof SmallPackage && ((SmallPackage)this.getPackages().get(0)).isAcknowledge())
-						System.out.println("The package " + this.getPackages().get(0).getPackageID()+ " send");
-					this.getPackages().get(0).addTracking(null, this.getPackages().get(0).getStatus());
-					this.deliverPackage(this.getPackages().get(0));
-					this.setAvailable(true);
-					
 				}
 			}
-			this.setTimeLeft(-1);
+			else 				
+				synchronized(this) {
+					try {
+						wait();
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
 		}
 		
 	}
 	
-	
-	
-	public String getName() {
-		return "Van " + this.getTruckID();
-	}
-	/**
-	 * Purpose function check if the status of the package is collection.
-	 * @return true
-	 * else 
-	 * @return false
-	 * */
-	private boolean Purpose(Package p) {
-		if(p.getStatus() == Status.COLLECTION)
-			return true;
-		return false;
-	}
-	
-	
-	
-	//This Method from Interface Node.
 	@Override
-	public void collectPackage(Package p) {
-		if(addPackageToTruck(p)) {
-			this.addPackageSuccessed();
-		}
-	
+	public void work() {
+
 	}
-	
+
+
 	@Override
-	public void deliverPackage(Package p) {
-		this.getPackages().remove(p);
+	public void paintComponent(Graphics g) {
+		if (isAvailable()) return;
+		Package p = this.getPackages().get(getPackages().size()-1);	
+		Point start=null;
+		Point end=null;
+		if (p.getStatus()==Status.COLLECTION) {
+			start = p.getSendPoint();
+			end = p.getBInPoint();
 		}
-	/**
-	 * function addPackageToTruck check if the Package we need to collected is small or standard package.
-	 * and if it's one of them it collected to the truck.
-	 * */
-	
-	@Override
-	public boolean addPackageToTruck(Package p) {
-		if(p instanceof StandardPackage || p instanceof SmallPackage) {
-			this.getPackages().add(p);
-			return true;
+		else if (p.getStatus()==Status.DISTRIBUTION) {
+			start = p.getBOutPoint();
+			end = p.getDestPoint();
 		}
-		return false;
+		
+		if (start!=null) {
+			int x2 = start.getX();
+			int y2 = start.getY();
+			int x1 = end.getX();
+			int y1 = end.getY();
+				
+			double ratio = (double) this.getTimeLeft()/this.initTime;
+			double length = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+			int dX = (int) (ratio*(x2-x1));
+			int dY = (int) (ratio*(y2-y1));
+				
+			g.setColor(Color.BLUE);
+			g.fillRect(dX+x1-8, dY+y1-8, 16, 16); 
+			g.setColor(Color.BLACK);
+			g.fillOval(dX+x1-12, dY+y1-12, 10, 10);
+			g.fillOval(dX+x1, dY+y1, 10, 10);
+			g.fillOval(dX+x1, dY+y1-12, 10, 10);
+			g.fillOval(dX+x1-12, dY+y1, 10, 10);
+		}
+			
+		
 	}
+	public void addPropertyChangeListener(PropertyChangeListener pcl){ 	
+		support.addPropertyChangeListener(pcl); 
+	} 
+
+	public void removePropertyChangeListener(PropertyChangeListener pcl){ 	
+		support.removePropertyChangeListener(pcl); 
+	} 
+	@Override
+	public void addObserver() {
+		this.addPropertyChangeListener(MainOffice.getInstance());		
+	}
+
+    public void stop() {
+    	running.set(false);	
+    }
+
+
+
+
+
 }
