@@ -12,7 +12,7 @@ import java.io.IOException;
 public class ReadWriteFile {
 	private static ReadWriteFile readWriteFile; 
 
-	private String Path = "/Users/a2019/Desktop/מכונות/עבודה 1/ASS1/components/tracking.txt";
+	private String Path = "/Users/a2019/eclipse-workspace/CourierCompany/components/tracking.txt";
 	private File file = new File(Path);
 
 	private ReadWriteFile() throws IOException{}

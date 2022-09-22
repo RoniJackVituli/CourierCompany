@@ -1,195 +1,242 @@
 package components;
 
-
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.util.Random;
 
-
-public class StandardTruck extends Truck {
-	/**
-	 * <h1>The StandardTruck class</h1>
-	 * represents a truck for transporting packages from the hub to branches and back and inherits from a Truck class.
-	 * all trucks belong to the hub.
-	 * The class has two fields:
-	 * 1. maxWeight -> the maximum weight that the truck can load.
-	 * 2. destination -> the destination branch that the truck needs to ride or drive back to the hub.
-	 *
-	 * @author Roni_Jack_Vituli -> 315369967 , Matan_Ben_Ishay -> 205577349
-	 * */
-
+public class StandardTruck extends Truck{
 	private int maxWeight;
-	private Branch destination;
-	private int time = 0; 
-	private int time2 = 0;
-	
-	private int CordBranchX ,CordBranchY;
-	private int CordHubX , CordHubY;
+	private Branch destination=null;
+	private Branch source = null;
+	private PropertyChangeSupport support; 
 
-
-	/**
-	 * 
-	 * Default Constructor of the class
-	 * activates Truck Constructor using super
-	 * creates a random weight between 300 and 200
-	 * Then runs the toString function and prints the generated data.
-	 * */
 	public StandardTruck() {
 		super();
 		maxWeight=((new Random()).nextInt(2)+2)*100;
-		System.out.println(this);
-
+		System.out.println("Creating "+ this);
+		support = new PropertyChangeSupport(this); 
 	}
-	
-	/**
-	 * 
-	 * Constructor of the class
-	 * get three parameters 
-	 * @param licensePlate 
-	 * @param truckModel
-	 * @param maxWeight
-	 * activates Truck Constructor using super 
-	 * Then runs the toString function and prints the generated data.
-	 * */
+
+
+
+
 	public StandardTruck(String licensePlate,String truckModel,int maxWeight) {
 		super(licensePlate,truckModel);
 		this.maxWeight=maxWeight;
-		System.out.println(this);
 
+		support = new PropertyChangeSupport(this); 
 	}
-	
-	
+
+
 	public Branch getDestination() {
 		return destination;
 	}
-	
-	
+
+	public void stop() {
+		running.set(false);	
+	}
+
+	@Override
+	public Object clone() {
+		System.out.println("Standrat Clone");
+		String licensePlate = this.getLicensePlate();
+		String truckModel = this.getTrukModel();
+		int maxWeight = getMaxWeight();
+		return new StandardTruck(licensePlate, truckModel, maxWeight);
+	} 
+
+
 	public void setDestination(Branch destination) {
 		this.destination = destination;
 	}
-	
+
 
 	public int getMaxWeight() {
 		return maxWeight;
 	}
 
-	
+
 	public void setMaxWeight(int maxWeight) {
 		this.maxWeight = maxWeight;
 	}
 
-	
+
 	@Override
 	public String toString() {
 		return "StandartTruck ["+ super.toString() +",maxWeight=" + maxWeight + "]";
 	}
-	
-	
-	public void unload () {
-		for (Package p: getPackages()) {
-			deliverPackage(p);
+
+
+	public void unload (Branch dest) {
+		Status status;
+		synchronized(dest) {
+			if (dest==MainOffice.getHub())
+				status=Status.HUB_STORAGE;
+			else 
+				status=Status.DELIVERY;
+
+			for (Package p: getPackages()) {
+				support.firePropertyChange(new PropertyChangeEvent(p, "Status", p.getStatus(), status));
+				//				p.setStatus(status);
+				dest.addPackage(p);
+				p.addTracking(dest, status);	
+			}
+			getPackages().removeAll(getPackages());
+			System.out.println("StandardTruck " + getTruckID() + " unloaded packages at " + destination.getName());
 		}
-		getPackages().removeAll(getPackages());
-		System.out.println(getName() + " unloaded packages at " + destination.getName());
 	}
-	
-	
-	@Override
-	public void deliverPackage(Package p) {
-		if (destination==MainOffice.getHub())
-			p.addRecords(Status.HUB_STORAGE, destination);
-		else 
-			p.addRecords(Status.DELIVERY, destination);
-		destination.addPackage(p);
-	}
-	
+
+
 	public void load (Branch sender, Branch dest, Status status) {
 		double totalWeight=0;
-		for (int i=0; i< sender.getPackages().size();i++) {
-			Package p=sender.getPackages().get(i);
-			if (p.getStatus()==Status.BRANCH_STORAGE || (p.getStatus()==Status.HUB_STORAGE && p.getDestBranch()==dest)) {
-				if (p instanceof SmallPackage && totalWeight+1<=maxWeight || totalWeight+((StandardPackage)p).getWeight()<=maxWeight) {
-					getPackages().add(p);
-					sender.removePackage(p);
-					i--;
-					p.addRecords(status, this);
-				}
-			}
-		}
-		System.out.println(this.getName() + " loaded packages at " + sender.getName());
-	}
-	
-	
-	
-	public int getTime() {
-		return time;
-	}
-
-
-	public int getTime2() {
-		return time2;
-	}
-
-
-	public void setTime(int time) {
-		this.time = time;
-	}
-
-
-	public void setTime2(int time2) {
-		this.time2 = time2;
-	}
-
-	
-
-	public synchronized void work() {
-		if (!isAvailable()) {
-			setTimeLeft(getTimeLeft()-1);
-			if (getTimeLeft()==0) {
-				System.out.println("StandardTruck "+ getTruckID()+ " arrived to " + destination.getName());
-				unload();
-				if (destination == MainOffice.getHub()) {
-					setAvailable(true);
-					destination=null;
-				}else{
-					this.getLocation().x = (int) destination.getLocation().getX();
-					this.getLocation().y = (int) destination.getLocation().getY();	
-					this.getTarget().x = (int) destination.getTarget().getX(); // return to hubX
-					this.getTarget().y = (int) destination.getTarget().getY(); // return to hubY					
-					load(destination, MainOffice.getHub(), Status.HUB_TRANSPORT);
-					setTimeLeft(((new Random()).nextInt(6)+1)*10);
-					this.time = getTimeLeft();
-					this.time2 = 1;
-					destination = MainOffice.getHub();	
-					CordHubX = this.getTarget().x;
-					CordHubY = this.getTarget().y;
-					CordBranchX = this.getLocation().x;
-					CordBranchY = this.getLocation().y;
-					System.out.println(this.getName() + " is on it's way to the HUB, time to arrive: "+ getTimeLeft());
-				}
-			}else{
-					if(destination != MainOffice.getHub()) {
-						int x = (int) (destination.getTarget().getX() + (destination.getLocation().getX() - destination.getTarget().getX()) * time2/time);
-						int y = (int) (destination.getTarget().getY() + (destination.getLocation().getY() - destination.getTarget().getY()) * time2/time);
-						this.time2++;
-						this.getLocation().x = x+1;
-						this.getLocation().y = y-7;
-						
-					}else {	
-						int x = (int) (CordBranchX + (CordHubX - CordBranchX) * time2/time);
-						int y = (int) (CordBranchY + (CordHubY - CordBranchY) * time2/time);
-						this.time2++ ;
-						this.getLocation().x = x-1;
-						this.getLocation().y = y-10;
+		synchronized(sender) {
+			for (int i=0; i< sender.listPackages.size();i++) {
+				Package p=sender.listPackages.get(i);
+				if (p.getStatus()==Status.BRANCH_STORAGE || (p.getStatus()==Status.HUB_STORAGE && MainOffice.getHub().getBranches().get(p.getDestinationAddress().zip)==dest)) {
+					if (p instanceof SmallPackage && totalWeight+1<=maxWeight || totalWeight+((StandardPackage)p).getWeight()<=maxWeight) {
+						getPackages().add(p);
+						sender.listPackages.remove(p);
+						i--;
+						support.firePropertyChange(new PropertyChangeEvent(p, "Status", p.getStatus(), status));
+						//						p.setStatus(status);
+						p.addTracking(this, status);
 					}
 				}
 			}
+			System.out.println(this.getName() + " loaded packages at " + sender.getName());
 		}
-	
+	}
 
 
 	@Override
 	public void run() {
-		work();
-		
+		this.running.set(true);
+		while(running.get()) {
+			try {
+				Thread.sleep(300);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			synchronized(this) {
+				while (threadSuspend)
+					try {
+						wait();
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+			}
+			if (!isAvailable()) {
+				setTimeLeft(getTimeLeft()-1);
+				if (getTimeLeft()==0) {
+					System.out.println("StandardTruck "+ getTruckID()+ " arrived to " + destination.getName());
+					unload(destination);
+					if (destination==MainOffice.getHub()) {
+						setAvailable(true);
+					}
+
+					else {
+						load(destination, MainOffice.getHub(), Status.HUB_TRANSPORT);
+						setTimeLeft(((new Random()).nextInt(6)+1)*10);
+						this.initTime = this.getTimeLeft();
+						source = destination;
+						destination=MainOffice.getHub();
+						System.out.println(this.getName() + " is on it's way to the HUB, time to arrive: "+ getTimeLeft());
+					}			
+				}
+			}
+			else
+				synchronized(this) {
+					try {
+						wait();
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+		}
 	}
-	
+
+
+	public void work() {
+
+	}
+
+
+	@Override
+	public void paintComponent(Graphics g) {
+		Point start=null;
+		Point end=null;
+		Color col = new Color(102,255,102);
+		if (this.getPackages()==null || destination==null) return;
+
+		if (this.getPackages().size()==0) {
+			if (destination!=MainOffice.getHub()) {
+				end = this.destination.getBranchPoint();
+				start = this.destination.getHubPoint();
+			}
+			else {
+				start = this.source.getBranchPoint();
+				end = this.source.getHubPoint();
+			}
+		}
+		else {			
+			Package p = this.getPackages().get(getPackages().size()-1);
+			col = new Color(0,102,0);
+			if (p.getStatus()==Status.HUB_TRANSPORT) {
+				start = this.source.getBranchPoint();
+				end = this.source.getHubPoint();
+			}
+			else if (p.getStatus()==Status.BRANCH_TRANSPORT){
+				end = this.destination.getBranchPoint();
+				start = this.destination.getHubPoint();
+			}
+		}
+
+
+		if (start!=null) {
+			int x2 = start.getX();
+			int y2 = start.getY();
+			int x1 = end.getX();
+			int y1 = end.getY();
+
+			double ratio = (double) this.getTimeLeft()/this.initTime;
+			//System.out.println(x2+" "+x1+" "+ratio);
+			double length = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+			int dX = (int) (ratio*(x2-x1));
+			int dY = (int) (ratio*(y2-y1));
+
+			g.setColor(col);
+			g.fillRect(dX+x1-8, dY+y1-8, 16, 16); 
+			g.setColor(Color.BLACK);
+			g.setFont(new Font("Courier", Font.BOLD,13));
+			if (this.getPackages().size()>0)
+				g.drawString(""+this.getPackages().size(), dX+x1-3, dY+y1-8-5);
+			g.fillOval(dX+x1-12, dY+y1-12, 10, 10);
+			g.fillOval(dX+x1, dY+y1, 10, 10);
+			g.fillOval(dX+x1, dY+y1-12, 10, 10);
+			g.fillOval(dX+x1-12, dY+y1, 10, 10);
+		}
+
+	}
+
+	public void addPropertyChangeListener(PropertyChangeListener pcl){ 	
+		support.addPropertyChangeListener(pcl); 
+	} 
+
+	public void removePropertyChangeListener(PropertyChangeListener pcl){ 	
+		support.removePropertyChangeListener(pcl); 
+	}
+
+
+	@Override
+	public void addObserver() {
+		this.addPropertyChangeListener(MainOffice.getInstance());		
+	}
+
 }
